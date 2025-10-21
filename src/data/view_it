@@ -1,0 +1,3 @@
+sleep 2
+python3 write_xdmf.py
+../../../../../Paraview/ParaView-5.11.1-MPI-Linux-Python3.9-x86_64/bin/paraview viewfld_DNS.xmf

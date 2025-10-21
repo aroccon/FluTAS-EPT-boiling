@@ -1,0 +1,16 @@
+0.001 0.001 0.00001 0.001            ! rho1, rho2, mu1,mu2 !1 corr to dispersed phase1
+one              	        ! inipsi
+1				! nbub
+0.0001 0.01 0.0 0.033396336045427308         ! xc, yc, zc=0.001, r
+P P  P P  N N 		        ! cbcpsi
+0. 0. 0. 0. 0. 0.		! bcpsi
+0.00d0 1.d0		       	! sigma, sigma_t
+F 1000000000    		    	! late_init,i_late_init
+1000.0 1.0                         ! gamma_v, eps_int !eps_int will be mult by the grid size 
+P P  P P  N N                   ! cbcnor x          !gamma_v will be mult by maximum velocity
+P P  P P  N N                   ! cbcnor y
+P P  P P  N N                   ! cbcnor z
+0. 0. 0. 0. 0. 0.               ! bcnor x
+0. 0. 0. 0. 0. 0.               ! bcnor y
+0. 0. 0. 0. 0. 0.               ! bcnor z
+90.0                            ! Contact angle : if there is no contact angle, please remove this line 2.35619449  1.570796326
