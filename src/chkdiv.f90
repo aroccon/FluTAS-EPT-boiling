@@ -1,6 +1,3 @@
-!
-! SPDX-License-Identifier: MIT
-!
 module mod_chkdiv
   !
   use mpi
@@ -39,16 +36,10 @@ module mod_chkdiv
     divmax        = 0._rp
     mass_cons_tot = 0._rp
     mass_cons_max = 0._rp
+    div_(:,:,:) = 0.0
 #if defined(_OPENACC)
     !$acc parallel loop collapse(3) reduction(max:divmax) reduction(+:divtot)
-#else
-    !$OMP PARALLEL DO DEFAULT(none) &
-    !$OMP SHARED(n,u,v,w,dxi,dyi,dzfi) &
-    !$OMP PRIVATE(i,j,k,div) &
-    !$OMP REDUCTION(+:divtot) &
-    !$OMP REDUCTION(max:divmax)
 #endif
-    div_(:,:,:) = 0.0
     do k=1,nz
       do j=1,ny
         do i=1,nx
@@ -68,8 +59,6 @@ module mod_chkdiv
     enddo
 #if defined(_OPENACC)
     !$acc end parallel loop 
-#else
-    !$OMP END PARALLEL DO
 #endif
     call mpi_allreduce(MPI_IN_PLACE,divtot,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
     call mpi_allreduce(MPI_IN_PLACE,divmax,1,MPI_REAL_RP,MPI_MAX,MPI_COMM_WORLD,ierr)
