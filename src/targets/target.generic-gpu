@@ -25,10 +25,10 @@ LDFLAGS :=
 USE_NVTX = 0
 
 # Required for FFTW
-FFTW_HOME := /data/nicolos/libraries/fftw-3.3.9
+#FFTW_HOME := /data/nicolos/libraries/fftw-3.3.9
 LDFLAGS   += -L${FFTW_HOME}/lib -lfftw3
 
-FFLAGS    += -cuda -acc -gpu=cc70 -cudalib=cufft,curand 
+FFLAGS    += -cuda -acc -gpu=cc70  -cudalib=cufft,curand 
 DFLAGS    += -D_EPHC -D_GPU_MPI
 
 # Required for INIT_MONTECARLO

@@ -200,8 +200,6 @@ subroutine update_property_IBM(n,nh_p,prop12,psi,prop,IBM_cond)
   prop12_1 = prop12(1)
   prop12_2 = prop12(2)
   !
-  !$acc parallel loop collapse(3)
-  ! first for IBM part
   if(IBM_h.NE.0) then
     do k=1-nh_p,IBM_h
       do j=1-nh_p,n2+nh_p
@@ -221,7 +219,6 @@ subroutine update_property_IBM(n,nh_p,prop12,psi,prop,IBM_cond)
       enddo
     enddo
   enddo
-  !$acc end parallel loop 
   !
   return
 end subroutine update_property_IBM
@@ -275,10 +272,10 @@ subroutine init_ent(nh_p,h1,h2,h3,h03,n,psi,ind_IBM,ent,dl)
           !
           d = 0.07868440885009152  !Lambda_0 in Sun et al 2014
           !d = 0.0023003957362390023  !Lambda_0 in NTNU_test_4
-          d = (d/128.0)*(4.0+cos(2.0*pi*(y-0.5*d)/d))           ! in Sun et al 2014
+          d = (d/128.d0)*(4.d0+cos(2.d0*pi*(y-0.5d0*d)/d))           ! in Sun et al 2014
           !d = (d/1.0)*(0.025+0.0025*cos(2.0*pi*(y-0.5*d)/d))    ! in NTNU_test_4
-          d = max((d-z)/d,0.0)
-          d = (0.0 + d*1.0)       ! for the Sun et al 2014 test case
+          d = max((d-z)/d,0.d0)
+          d = (0.d0 + d*1.d0)       ! for the Sun et al 2014 test case
           !d = (0.0+d*5.0)       ! for the NTNU_test_4 test case
           ent(i,j,k) = (psi(i,j,k))*(d*(rho1*cp1) + h01*rho1) &
                  + (1.0-psi(i,j,k))*(d*(rho2*cp2) + h02*rho2)
@@ -1039,7 +1036,7 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           h_val    = (2.0/(1.0+exp(4.0*h_val/out_len)))
           u_e      = phiy*u_gas + (1.0-phiy)*u_liquid
           ! scaling part:
-          dvdt = h_val*(min(1.0,abs(u_e/vold(i,j,k)))-1.0)*vold(i,j,k)/f_t12
+          dvdt = h_val*(min(1.d0,abs(u_e/vold(i,j,k)))-1.0d0)*vold(i,j,k)/f_t12
           if(vold(i,j,k).le.(0.1*u_e)) dvdt = - h_val*(vold(i,j,k)-(0.1*u_e))/f_t12
           ! convection 
           dvdt = dvdt - abs(u_e)*h_val*(vold(i,j,k)-vold(i,j-1,k))/dl(2) ! first order upwind scheme was important for stability!
@@ -1085,7 +1082,7 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           h_val    = (2.0/(1.0+exp(4.0*(l(3)-z)/out_len)))          
           u_e      = phiz*u_gas + (1.0-phiz)*u_liquid
           ! scaling part:
-          dwdt = h_val*(min(1.0,abs(u_e/wold(i,j,k)))-1.0)*wold(i,j,k)/f_t12
+          dwdt = h_val*(min(1.d0,abs(u_e/wold(i,j,k)))-1.d0)*wold(i,j,k)/f_t12
           ! convection 
           dwdt = dwdt - abs(u_e)*h_val*(wold(i,j,k)-wold(i,j,k-1))/dl(3)   ! first order upwind scheme was important for stability!
           !_______________________________________
@@ -1093,7 +1090,7 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           h_val    = (2.0/(1.0+exp(4.0*(l(3)-z+0.5*dl(3))/out_len)))          
           u_e      = phiy*u_gas + (1.0-phiy)*u_liquid
           ! scaling part:
-          dvdt = h_val*(min(1.0,abs(u_e/vold(i,j,k)))-1.0)*vold(i,j,k)/f_t12
+          dvdt = h_val*(min(1.d0,abs(u_e/vold(i,j,k)))-1.d0)*vold(i,j,k)/f_t12
           ! convection 
           dvdt = dvdt - abs(u_e)*h_val*(vold(i,j,k)-vold(i,j,k-1))/dl(3) ! first order upwind scheme was important for stability!
           !_______________________________________
@@ -1105,7 +1102,7 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           u_e      = phix*u_gas + (1.0-phix)*u_liquid
 #endif
           ! scaling part:
-          dudt = h_val*(min(1.0,abs(u_e/uold(i,j,k)))-1.0)*uold(i,j,k)/f_t12
+          dudt = h_val*(min(1.d0,abs(u_e/uold(i,j,k)))-1.d0)*uold(i,j,k)/f_t12
           ! convection 
           dudt = dudt - abs(u_e)*h_val*(uold(i,j,k)-uold(i,j,k-1))/dl(3) ! first order upwind scheme was important for stability!
           ! Even in the Two-D Case, the dudt term is important for stability
@@ -1135,31 +1132,31 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           h_val    = (2.0/(1.0+exp(4.0*(z)/out_len)))          
           u_e      = phiz*u_gas + (1.0-phiz)*u_liquid
           ! scaling part:
-          dwdt = rhoz*h_val*(min(1.0,abs(u_e/wold(i,j,k)))-1.0)*wold(i,j,k)/f_t12
+          dwdt = rhoz*h_val*(min(1.d0,abs(u_e/wold(i,j,k)))-1.d0)*wold(i,j,k)/f_t12
           ! convection 
           upwind = 1
           !if(wold(i,j,k).LT.0.0) upwind = 1
           dwdt = dwdt + rhoz*abs(u_e)*h_val*(wold(i,j,k+1)-wold(i,j,k))/dl(3)   ! first order upwind scheme was important for stability!!
           !_______________________________________
           ! Scaling in y
-          h_val    = (2.0/(1.0+exp(4.0*(z-0.5*dl(3))/out_len)))          
-          u_e      = phiy*u_gas + (1.0-phiy)*u_liquid
+          h_val    = (2.d0/(1.d0+exp(4.0*(z-0.5*dl(3))/out_len)))          
+          u_e      = phiy*u_gas + (1.d0-phiy)*u_liquid
           ! scaling part:
-          dvdt = rhoy*h_val*(min(1.0,abs(u_e/vold(i,j,k)))-1.0)*vold(i,j,k)/f_t12
+          dvdt = rhoy*h_val*(min(1.d0,abs(u_e/vold(i,j,k)))-1.d0)*vold(i,j,k)/f_t12
           ! convection 
           !upwind = 0
           !if((0.25*(wold(i,j,k)+wold(i,j,k-1)+wold(i,j+1,k)+wold(i,j+1,k-1))).LT.0.0) upwind = 1
           dvdt = dvdt + rhoy*abs(u_e)*h_val*(vold(i,j,k+1)-vold(i,j,k))/dl(3)
           !_______________________________________
           ! Scaling in x
-          h_val    = (2.0/(1.0+exp(4.0*(z-0.5*dl(3))/out_len)))          
+          h_val    = (2.d0/(1.d0+exp(4.d0*(z-0.d0*dl(3))/out_len)))          
 #if defined(_TWOD)
           u_e      = 0.0
 #else
           u_e      = phix*u_gas + (1.0-phix)*u_liquid
 #endif
           ! scaling part:
-          dudt = rhox*h_val*(min(1.0,abs(u_e/uold(i,j,k)))-1.0)*uold(i,j,k)/f_t12
+          dudt = rhox*h_val*(min(1.d0,abs(u_e/uold(i,j,k)))-1.d0)*uold(i,j,k)/f_t12
           ! convection 
           !upwind = 0
           !if((0.25*(wold(i,j,k)+wold(i,j,k-1)+wold(i+1,j,k)+wold(i+1,j,k-1))).LT.0.0) upwind = 1
@@ -1245,7 +1242,7 @@ subroutine outflow_psi(n,dl,nh_v,phiold,u,v,w,dt,bound_o,tmp,ent_switch,back_val
           !
           !if(v_loc.LT.0.0) phi_grady = 0.0
           !
-          psi_wall          = max(0.0,psi_wall - dt*(u_loc*phi_gradx &
+          psi_wall          = max(0.d0,psi_wall - dt*(u_loc*phi_gradx &
                                                     +v_loc*phi_grady &
                                                     +w_loc*phi_gradz))
           !                                  
@@ -1373,7 +1370,7 @@ subroutine boundsb_arrayo(n,nh_p,halo,s,bound_o)
   integer :: q,i,j,k
   integer :: ind1,ind2
 
-  !  
+  !@cuf attributes(managed) :: s  
 #if defined(_DECOMP_X)
   ind1 = 2 
   ind2 = 3 
@@ -1596,7 +1593,7 @@ subroutine apply_bound_vel(n,dl,l,nh_p,nh_u,u,v,w,halo_u,halo_p,p,mom_switch,rho
   integer                                                           :: ind1,ind2
   integer       , intent(in   ), dimension(3)                       :: halo_u,halo_p
   logical       , intent(in   )                                     :: mom_switch
-  !
+  !@cuf attributes(managed) :: u,v,w,p
 #if defined(_DECOMP_X)
   ind1 = 2 
   ind2 = 3 
@@ -1825,7 +1822,7 @@ subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_
   integer                                                        :: y_stop,z_start,z_stop,min_dist
   real(rp)                                                       :: delta1,delta2,delta3
   real(rp), parameter                                            :: small = real(2.e-14,rp)
-  !
+  !@cuf attributes(managed) :: dzf,src,dzc
   dlmin   = minval(dl(1:3))
   eps1    = min_eps_prime*dlmin/(dl(1))
   eps2    = min_eps_prime*dlmin/(dl(2))
@@ -1928,9 +1925,6 @@ subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_
        ! Step 2: Calculate source term that corresponds to deltaT (from energy equation) !
        src(i,j,k)    = -rhocp(i,j,k)*(deltaT/f_t12)/((cp1-cp2)*tmp(i,j,k)+(h01 - h02))
        !
-       !src(i,j,k)    = -0.1*((psi(i,j,k+1)-psi(i,j,k-1))/(2.0*dl(3)))/(1.0/rho1-1.0/rho2)
-       !tmp(i,j,k)    = tmp(i,j,k) - f_t12*((cp1-cp2)*tmp(i,j,k)+(h01 - h02))*src(i,j,k)/rhocp(i,j,k)
-       !
        ! Step 3: Update phase field 
        psi(i,j,k)    = psi(i,j,k) + src(i,j,k)*f_t12/rho1
        !
@@ -1983,9 +1977,8 @@ subroutine surft_src_FEF(nx,ny,nz,nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,psi,u,v,w,l,d
   !
   real(rp) :: phix,phiy,phiz,z,h_val,switch,auxx,auxy,auxz,dmudx,dmudy,dmudz,mag_grad_ls_sq
   integer  :: i,j,k,ip,jp,kp
-  !@cuf attributes(managed) ::  psi, dzci, u, v, w
+  !@cuf attributes(managed) ::  psi, dzci, u, v, w, dzf,auxfield,dzc
   !
-  !$acc kernels
   allocate(auxfield(0:nx+1,0:ny+1,0:nz+1))
   ! switch between sonservative and non conservative version (see [1]):
   select case(FE_type)
@@ -2146,7 +2139,6 @@ subroutine surft_src_FEF(nx,ny,nz,nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,psi,u,v,w,l,d
   case default
     call flutas_error('ERROR in surface tension: This FE method is not implemented ... yet!')
   end select
-  !$acc end kernels
   !
   deallocate(auxfield)
   return
@@ -2330,9 +2322,7 @@ subroutine adjust_bound_vel(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,psi,dl,dzc,
     real(rp) :: rhox,rhoy,rhoz,cog,x,y,z,cog_target,p_factor,bubble_vel,weight,tolerance
     integer  :: im,ip,jm,jp,km,kp,i,j,k
     !
-    !@cuf attributes(managed) :: u, v, w, mu, rho, dzci, dzfi, dudt, dvdt, dwdt
     !    
-    !$acc kernels
     cog_target = nuc_sites(1,3)
     ! p_factor = max rise vel ~0.15m/s and max. allowed dispacement 0.15mm => 1000.0
     p_factor = 500.0
@@ -2361,12 +2351,9 @@ subroutine adjust_bound_vel(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,psi,dl,dzc,
     call mpi_allreduce(MPI_IN_PLACE,cog,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
     call mpi_allreduce(MPI_IN_PLACE,weight,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
     cog = cog/weight
-    bubble_vel = -max((cog-cog_target-tolerance),0.0)*p_factor
+    bubble_vel = -max((cog-cog_target-tolerance),0.d0)*p_factor
     bcvel(1,3,3) = bubble_vel
     if(myid.eq.0) print*, "Inflow velocity: ", bubble_vel, time, f_t12
-    !
-    !$acc end kernels 
-    !$OMP END PARALLEL DO
     !
     return
   end subroutine adjust_bound_vel
@@ -2443,7 +2430,7 @@ subroutine update_gamma_v(nh_u,nh_d,dli,dzci,dzfi,dxi,dyi,dzi,n,u,v,w,u_reg,eps_
   !______________________________________________________________
   !  now calculate maximum timestep with the lowest allowed regularistaion speed
   !  with the criterion from [1]
-  dt_cdi = 1.0/max((((min_gamma*umax*6*best_dt_eps)/(dlmin**2))-mingrad),0.0)
+  dt_cdi = 1.0d0/max((((min_gamma*umax*6.d0*best_dt_eps)/(dlmin**2))-mingrad),0.d0)
   !
   !______________________________________________________________
   !For adaptive timestepping
@@ -2647,7 +2634,7 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
   real(rp) :: rhox,rhoy,rhoz,rhoxi,rhoyi,rhozi
   real(rp) :: f2
   integer  :: i,j,k,ip,jp,kp
-  !@cuf attributes(managed) :: dzci, p, pold, rho, u, v, w
+  !@cuf attributes(managed) :: dzci, p, rho, u, v, w
   !
   if(istep.eq.1) then ! we use 1st order Euler in the first time-step (istep.eq.1)
     f2 = 0._rp
@@ -2655,7 +2642,6 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
     f2 = (f_t12/f_t12_o)
   endif
   !
-  !$acc kernels
   select case(stage)
     case(1)
       do k=1+IBM_h,nz
@@ -2722,7 +2708,6 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
     case default
       call flutas_error('ERROR in pres_tw_src: Invalid pressure stage specified!')
   end select
-  !$acc end kernels
   !
   return
 end subroutine pres_tw_src
@@ -2766,7 +2751,9 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
   real(rp)   , allocatable  , dimension(:,:,:)                   :: dp1,dp2,dp3,u_grad_rho
   real(rp)                                                       :: rho0i,f_ex
   real(rp) :: dtidxi,dtidyi,rxm,rxp,rym,ryp,rzm,rzp !!!
-  !
+  !@cuf attributes(managed) :: dzc,dp2,dzci,dzf,dzfi,dp1,rho,vel_1_x,vel_1_y,vel_1_z,p
+  !@cuf attributes(managed) :: vel_2_x,vel_2_y,vel_2_z,dp3,rhsbx,rhsby,rhsbz,u,v,w
+
   nse_switch = 0.0
   if(use_mod_nse)  nse_switch = 1.0
   dti = 1._rp/f_t12
@@ -2949,7 +2936,7 @@ real(rp) function compute_pres_limiter_v1(n,nh_p,p1,p2,dl)
   if(maxp2.EQ.0.0) maxp2=small_num
   if(minp2.EQ.0.0) minp2=small_num
   !
-  compute_pres_limiter_v1 = relax*min(1.0,abs(maxp1)/abs(maxp2),abs(minp1)/abs(minp2))
+  compute_pres_limiter_v1 = relax*min(1.d0,abs(maxp1)/abs(maxp2),abs(minp1)/abs(minp2))
   !
 end function compute_pres_limiter_v1
 !
@@ -2980,7 +2967,7 @@ real(rp) function compute_pres_limiter_v2(n,nh_p,p1,p2,dl)
   do k=1,n(3)
     do j=1,n(2)
       do i=1,n(1)
-        int1=int1+min(1.0,max(0.0,p1(i,j,k)/p2(i,j,k)))*abs(p2(i,j,k)+small_num)
+        int1=int1+min(1.0d0,max(0.d0,p1(i,j,k)/p2(i,j,k)))*abs(p2(i,j,k)+small_num)
         int2=int2+abs(p2(i,j,k)+small_num);
       enddo
     enddo
@@ -3106,6 +3093,7 @@ subroutine correct_mom(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mu,rho, &
     real(rp) :: term1,term2,term3,overall_corr
     real(rp), parameter :: small_num = 1e-10
     real(rp), allocatable  , dimension(:,:,:,:)                   :: auxfield
+    !@cuf attributes(managed) :: u, v, w, mu, rho, dzci, dzfi, dudt, dvdt, dwdt, auxfield
     x_start = 0
     x_stop  = 0
     y_start = 0
@@ -3126,9 +3114,7 @@ subroutine correct_mom(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mu,rho, &
       z_stop = out_rk_safety
     endif
     !
-    !@cuf attributes(managed) :: u, v, w, mu, rho, dzci, dzfi, dudt, dvdt, dwdt
     !    
-    !$acc kernels
     allocate(auxfield(0:nx+1,0:ny+1,0:nz+1,3))
     auxfield(:,:,:,:) = 0.0
     !
@@ -3158,9 +3144,9 @@ subroutine correct_mom(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mu,rho, &
       enddo
     enddo
     !
-    call bounduvw(cbcreg,(/nx,ny,nz/),bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc &
-               ,dzf,auxfield(:,:,:,1),auxfield(:,:,:,2),auxfield(:,:,:,3), &
-               rho,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.)
+    !AR!call bounduvw(cbcreg,(/nx,ny,nz/),bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc &
+    !AR!           ,dzf,auxfield(:,:,:,1),auxfield(:,:,:,2),auxfield(:,:,:,3), &
+    !AR!           rho,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.)
     !
     !
     do k=IBM_h+1+z_start,nz-z_stop
@@ -3276,8 +3262,6 @@ subroutine correct_mom(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mu,rho, &
     enddo
     !
     deallocate(auxfield)
-    !$acc end kernels 
-    !$OMP END PARALLEL DO
     !
     return
 end subroutine correct_mom
@@ -3302,6 +3286,7 @@ subroutine update_reg_terms(nh_u,nh_p,nh_d,halo_u,nh_v,dli,n,psi,ls,nor,u_reg,ep
   real(rp), intent(in ), dimension(1-nh_v:,1-nh_v:,1-nh_v:,1:) :: nor
   integer , intent(in ), dimension(3)                          :: halo_u
   real(rp)                                                     :: maxreg
+  !@cuf attributes(managed):: dzc,dzf
   !
   rex(:,:,:) = 0.0
   rey(:,:,:) = 0.0
@@ -3319,8 +3304,8 @@ subroutine update_reg_terms(nh_u,nh_p,nh_d,halo_u,nh_v,dli,n,psi,ls,nor,u_reg,ep
     !rez(:,:,IBM_h+1) = 0.0
   !endif
   !
-  call bounduvw(cbcreg,n,bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc,dzf,rex,rey,rez, &
-                                                          psi,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.) ! psi is used as dummy
+ !AR! call bounduvw(cbcreg,n,bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc,dzf,rex,rey,rez, &
+ !AR!                                                         psi,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.) ! psi is used as dummy
   !
   return
 end subroutine update_reg_terms

@@ -42,6 +42,7 @@ public boundsb_array,boundsb_array_ibm,updthalo
     real(rp)        , intent(in   ), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: mfx,mfy,mfz
     real(rp)        , intent(in   ), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: rho
     logical         , intent(in   ), dimension(0:1,3)                   :: isoutflow
+    !@cuf attributes(managed) :: u,v,w
     !
     real(rp), dimension(0:nh_u-1) :: dr
     real(rp) :: dx,dy,dz
@@ -2175,11 +2176,10 @@ public boundsb_array,boundsb_array_ibm,updthalo
     integer , intent(in   )                                     :: nh_p
     real(rp), intent(inout), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: s
     integer , intent(in   ), dimension(3)                       :: halo
-
     !   
     integer :: q,i,j
     integer :: ind1,ind2
-
+    !@cuf attributes(managed) :: s
     !  
 #if defined(_DECOMP_X)
     ind1 = 2 
@@ -2219,11 +2219,9 @@ public boundsb_array,boundsb_array_ibm,updthalo
     integer , intent(in   )                                     :: nh_p,IBM_h
     real(rp), intent(inout), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: s
     integer , intent(in   ), dimension(3)                       :: halo
-
-    !   
     integer :: q,i,j
     integer :: ind1,ind2
-
+    !@cuf attributes(managed) :: s
     !  
 #if defined(_DECOMP_X)
     ind1 = 2 

@@ -63,9 +63,8 @@ module mod_tagging_acdi_ibm
 
     character(len=3)                        :: proidch
     character(len=9)                        :: fldnum
-    !
+    !@cuf attributes(managed) :: dzc, dzf, vofTag_r, aux
     write(fldnum,'(i9.9)') istep
-    !@cuf attributes(managed) :: dzc, dzf, vofTag_r
     ! 
     !call random_number(rdnInit)
     ! idst = floor(rdnInit*100000+100000*myid) ! avoid possible ID duplication between processors. May fail for n_d >>10000???

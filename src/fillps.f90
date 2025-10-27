@@ -38,6 +38,8 @@ module mod_fillps
     integer                                                             :: x_start,x_stop
     integer                                                             :: y_start,y_stop
     integer                                                             :: z_start,z_stop
+    !@cuf attributes(managed) :: p, u, v, w, dzfi
+
     x_start = 0
     x_stop  = 0
     y_start = 0
@@ -67,7 +69,6 @@ module mod_fillps
         enddo
       enddo
     enddo
-    !@cuf attributes(managed) :: p, u, v, w, dzfi
     !
     dtidxi = dti*dxi
     dtidyi = dti*dyi

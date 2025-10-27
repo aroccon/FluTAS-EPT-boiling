@@ -159,7 +159,6 @@ module mod_source
     real(rp), allocatable, dimension(:,:,:)                     :: psi_tr
     !@cuf attributes(managed) :: kappa, psi, rho, dzci, u, v, w
     !
-    !$acc kernels
     allocate(psi_tr(0:nx+1,0:ny+1,0:nz+1))
     psi_tr(:,:,:) = 0.0
     if(truncated) then
@@ -221,7 +220,6 @@ module mod_source
           enddo
         enddo
       enddo
-      !$acc end kernels
     case(2)
       do k=IBM_h+1,nz
         do j=1,ny
@@ -262,7 +260,6 @@ module mod_source
           enddo
         enddo
       enddo
-      !$acc end kernels
     case(0)
       do k=IBM_h+1,nz
         do j=1,ny
@@ -300,7 +297,6 @@ module mod_source
           enddo
         enddo
       enddo
-      !$acc end kernels
     case default
       call flutas_error('ERROR: This outflow direction is not implemented ... yet! (surface tension)')
     end select
@@ -364,13 +360,11 @@ module mod_source
         enddo
       enddo
 #if defined(_OPENACC)
-      !$acc end parallel loop 
 #endif
       call MPI_ALLREDUCE(MPI_IN_PLACE,rho_av,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
       rho_av = rho_av/(lx*ly*lz)
     endif
     !
-    !$acc kernels
     do k=1,nz
       do j=1,ny
         do i=1,nx
@@ -408,7 +402,6 @@ module mod_source
         enddo
       enddo
     enddo
-    !$acc end kernels
     !
     return
   end subroutine grav_tw_src
@@ -557,9 +550,9 @@ end subroutine grav_tw_src_ibm
         real(rp) :: dwdyp,dwdym,dwdym_new
         real(rp) :: uwkp,uwkm,uwkm_new,dudzp,dudzm,dudzm_new,duwdz_old,duwdz_new,d2udz2_old,d2udz2_new
         real(rp) :: dudt,dvdt,dwdt,muzp,muzm,f1,f2,dwdxp,dwdxm,dwdxm_new,dpdz_old,dpdz_new
+        !@cuf attributes(managed) :: dzfi, u, v, w
         f1 = 1._rp+(f_t12/f_t12_o)
         f2 =       (f_t12/f_t12_o)
-        !@cuf attributes(managed) :: dzfi, u, v, w
         !
         !$acc kernels
         force_IBM(:,:,:) = 0.0    

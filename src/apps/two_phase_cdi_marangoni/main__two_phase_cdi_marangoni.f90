@@ -199,12 +199,13 @@ program flutas
   !
   !@cuf integer :: istat
   !@cuf integer(kind=cuda_count_kind) :: freeMem, totMem
-  !@cuf attributes(managed) :: pold, kappa, mu, rho, psi, d_thinc, cur_t, nor
+  !@cuf attributes(managed) :: pold, kappa, mu, rho, psi, nor
   !@cuf attributes(managed) :: u, v, w, p 
   !@cuf attributes(managed) :: dzc  , dzf  , zc  , zf  , dzci, dzfi
   !@cuf attributes(managed) :: zc_g, zf_g
   !@cuf attributes(managed) :: lambdaxyp, ap, bp, cp, rhsbp_x, rhsbp_y, rhsbp_z
-  !@cuf attributes(managed) :: dudtrko, dvdtrko, dwdtrko
+  !@cuf attributes(managed) :: dudtrko, dvdtrko, dwdtrko, rhoold, muold
+  !@cuf attributes(managed) :: src_ph,ls, ent, uold, vold, wold, mfx, mfy, mfz, ind_IBM, cond
   !
   !if we don't use dropcheck.f90 we can comment the next line  
   real(rp) :: xd,yd,zd,ut,vt,wt,zcd,ycd,xcd,vol
@@ -545,7 +546,6 @@ if(.not.restart) then
     ! set to zeros the rhs of momentum equation 
     ! (only for the first time-step, not for the restarting)
     ! 
-    !$acc kernels
     do k=1,n3
       do j=1,n2
         do i=1,n1
@@ -606,8 +606,6 @@ if(.not.restart) then
 #endif
     call bounduvw(cbcvel,n,bcvel,nh_d,nh_u,halo_u,is_outflow,dl,dzc,dzf, &
                        u,v,w,rho,rex,rey,rez,0.0_rp,0.0_rp,.TRUE.)
-    !
-    !$acc end kernels
     !
     if(myid.eq.0) print*, '*** Initial condition succesfully set ***'
     ! 
@@ -773,7 +771,8 @@ endif
     
   endif
   !
-  !@cuf istat = cudaMemPrefetchAsync(dudtrko, size(dudtrko), mydev, 0)boundp_IBM(cbcpsi,n,bcpsi,nh_d,nh_v,halo_v,dl,dzc,dzf,rho,ibm
+  !@cuf istat = cudaMemPrefetchAsync(dudtrko, size(dudtrko), mydev, 0)
+  !AR!boundp_IBM(cbcpsi,n,bcpsi,nh_d,nh_v,halo_v,dl,dzc,dzf,rho,ibm
   !@cuf istat = cudaMemPrefetchAsync(dvdtrko, size(dvdtrko), mydev, 0)
   !@cuf istat = cudaMemPrefetchAsync(dwdtrko, size(dwdtrko), mydev, 0)
   !
@@ -1544,7 +1543,7 @@ endif
       !@cuf istat = cudaMemPrefetchAsync(dwdtrko, size(dwdtrko), cudaCpuDeviceId, 0)
       !@cuf istat = cudaMemPrefetchAsync(p, size(p), cudaCpuDeviceId, 0)
       !@cuf istat = cudaMemPrefetchAsync(psi, size(psi), cudaCpuDeviceId, 0)
-      !@cuf istat = cudaMemPrefetchAsync(dpsidtrko, size(dpsidtrko), cudaCpuDeviceId, 0)
+      !!@cuf istat = cudaMemPrefetchAsync(dpsidtrko, size(dpsidtrko), cudaCpuDeviceId, 0)
       !
       inquire(file=trim(restart_dir)//'fldu.bin', exist=is_data)
       if(myid.eq.0.and.is_data) call execute_command_line('mv '//trim(restart_dir) & 
@@ -1606,7 +1605,7 @@ endif
       if(myid.eq.0.and.is_data) call execute_command_line('mv '//trim(restart_dir) & 
                                     //'flddpsi.bin '//trim(restart_dir)//'flddpsi_old.bin')
       call load(action_load,trim(restart_dir)//'flddpsi.bin',n, dpsidtrko(1:n(1),1:n(2),1:n(3)))
-      !@cuf if ( (mod(istep,isave)).eq. 0 .and. (.not. is_done) .and. (.not.kill) ) istat = cudaMemPrefetchAsync(dpsidtrko, size(dpsidtrko), mydev, 0)
+      !!@cuf if ( (mod(istep,isave)).eq. 0 .and. (.not. is_done) .and. (.not.kill) ) istat = cudaMemPrefetchAsync(dpsidtrko, size(dpsidtrko), mydev, 0)
 #endif
 #if defined(_SCALAR_TRANS) 
       inquire(file=trim(restart_dir)//'fldc1.bin', exist=is_data)

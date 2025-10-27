@@ -56,6 +56,8 @@ module mod_rk
     integer         , intent(in   ), dimension(3)                       :: halo_u
     integer         , intent(in   )                                     :: nh_p,nh_v
     real(rp), allocatable, dimension(:,:,:)                             :: outflow_ind
+    !@cuf attributes(managed) :: dzci, dzfi, u, v, w, dudtrko, dvdtrko, dwdtrko
+    !@cuf attributes(managed) :: mu, rho
     !until here nor,psi,eps_int,u_reg
     !
     real(rp) :: rhox,rhoy,rhoz
@@ -94,9 +96,6 @@ module mod_rk
         enddo
       enddo
     enddo
-    !
-    !@cuf attributes(managed) :: dzci, dzfi, u, v, w, dudtrko, dvdtrko, dwdtrko
-    !@cuf attributes(managed) :: mu, rho
     !
     ! we allocate the arrays dudtrko,dvdtrko and dwdtrko only once
     !

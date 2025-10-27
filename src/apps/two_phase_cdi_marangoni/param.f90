@@ -119,6 +119,7 @@ module mod_param
   integer , dimension(3) :: n
   real(rp), dimension(3) :: l
   real(rp), dimension(3) :: dl
+  !@cuf attributes(managed) :: dl
   real(rp), dimension(3) :: dli
   real(rp) :: dxi,dyi,dzi,dx,dy,dz
   real(rp) :: rho0

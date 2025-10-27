@@ -113,8 +113,7 @@ subroutine rk_ent_ibm(f_t1,f_t2,n,dli,nh_d,nh_u,nh_v,dzc,dzf,eps_int,u_reg, &
   real(rp), intent(in   ), dimension(0:,0:,0:)                   :: rhocp
   integer , intent(in   ), dimension(3)                          :: halo_u,halo_van
   real(rp), intent(in   ), dimension(1:,1:)                      :: ent_bound_o
-  !
-  !
+  !@cuf attributes(managed) :: velxc,velyc,velzc,weno2,dl,dzc_van,dzf,ent_test
   real(rp), dimension(n(1),n(2),n(3)) :: dentdtrk
   integer  :: i,j,k
   real(rp), dimension(:,:,:), allocatable :: ent_test,weno2
@@ -565,10 +564,10 @@ end subroutine rk_ent_ibm
         jp  = j + 1
         jm  = j - 1
         !
-        tan_x         = 1.5*((ap(ip,j ,kp)-ap(im,j ,kp))/dl(1)/(2.0)) - 0.5*((ap(ip,j ,kpp)-ap(im,j ,kpp))/dl(1)/(2.0))
-        tan_y         = 1.5*((ap(i ,jp,kp)-ap(i ,jm,kp))/dl(2)/(2.0)) - 0.5*((ap(i ,jp,kpp)-ap(i ,jm,kpp))/dl(2)/(2.0))
+        tan_x         = 1.5d0*((ap(ip,j ,kp)-ap(im,j ,kp))/dl(1)/(2.0)) - 0.5*((ap(ip,j ,kpp)-ap(im,j ,kpp))/dl(1)/(2.0))
+        tan_y         = 1.5d0*((ap(i ,jp,kp)-ap(i ,jm,kp))/dl(2)/(2.0)) - 0.5*((ap(i ,jp,kpp)-ap(i ,jm,kpp))/dl(2)/(2.0))
         tan_abs       = sqrt(tan_x**2+tan_y**2)
-        ap_bound(i,j) = max(0.0,min(1.0,ap(i,j,kp) + tan_abs*TAND(90.0 - theta)*dl(3)))
+        ap_bound(i,j) = max(0.d0,min(1.d0,ap(i,j,kp) + tan_abs*TAND(90.d0 - theta)*dl(3)))
       enddo
     enddo
     return
