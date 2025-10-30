@@ -1,0 +1,5 @@
+sleep 2
+source /home/weber/FluTAS/run/env/bin/activate
+python3 write_xdmf.py
+deactivate
+../../../../Paraview/ParaView-5.11.1-MPI-Linux-Python3.9-x86_64/bin/paraview PC_eval.pvsm
