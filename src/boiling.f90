@@ -46,7 +46,8 @@ real(rp)   , dimension(0:1,3,3),parameter :: bcreg = reshape((/0._rp,0._rp,0._rp
                                                              0._rp,0._rp,0._rp,0._rp,0._rp,0._rp,&
                                                              0._rp,0._rp,0._rp,0._rp,0._rp,0._rp/),&
                                                              shape(bcreg))
-!
+!@cuf attributes(managed):: rex,rey,rez            
+
 contains
 ! 
 !_______________________________________________________________________________
@@ -3093,7 +3094,7 @@ subroutine correct_mom(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mu,rho, &
     real(rp) :: term1,term2,term3,overall_corr
     real(rp), parameter :: small_num = 1e-10
     real(rp), allocatable  , dimension(:,:,:,:)                   :: auxfield
-    !@cuf attributes(managed) :: u, v, w, mu, rho, dzci, dzfi, dudt, dvdt, dwdt, auxfield
+    !@cuf attributes(managed) :: u, v, w, mu, rho, dzci, dzfi, dudt, dvdt, dzc, dzf, dwdt, auxfield
     x_start = 0
     x_stop  = 0
     y_start = 0
@@ -3144,9 +3145,9 @@ subroutine correct_mom(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mu,rho, &
       enddo
     enddo
     !
-    !AR!call bounduvw(cbcreg,(/nx,ny,nz/),bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc &
-    !AR!           ,dzf,auxfield(:,:,:,1),auxfield(:,:,:,2),auxfield(:,:,:,3), &
-    !AR!           rho,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.)
+    call bounduvw(cbcreg,(/nx,ny,nz/),bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc &
+               ,dzf,auxfield(:,:,:,1),auxfield(:,:,:,2),auxfield(:,:,:,3), &
+               rho,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.)
     !
     !
     do k=IBM_h+1+z_start,nz-z_stop
@@ -3304,8 +3305,8 @@ subroutine update_reg_terms(nh_u,nh_p,nh_d,halo_u,nh_v,dli,n,psi,ls,nor,u_reg,ep
     !rez(:,:,IBM_h+1) = 0.0
   !endif
   !
- !AR! call bounduvw(cbcreg,n,bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc,dzf,rex,rey,rez, &
- !AR!                                                         psi,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.) ! psi is used as dummy
+ call bounduvw(cbcreg,n,bcreg,nh_d,nh_u,halo_u,no_outflow,dl,dzc,dzf,rex,rey,rez, &
+                                                          psi,rex,rey,rez,0.0_rp,0.0_rp,.FALSE.) ! psi is used as dummy
   !
   return
 end subroutine update_reg_terms

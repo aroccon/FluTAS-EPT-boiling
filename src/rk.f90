@@ -57,7 +57,7 @@ module mod_rk
     integer         , intent(in   )                                     :: nh_p,nh_v
     real(rp), allocatable, dimension(:,:,:)                             :: outflow_ind
     !@cuf attributes(managed) :: dzci, dzfi, u, v, w, dudtrko, dvdtrko, dwdtrko
-    !@cuf attributes(managed) :: mu, rho
+    !@cuf attributes(managed) :: mu, rho, dzc, dzf
     !until here nor,psi,eps_int,u_reg
     !
     real(rp) :: rhox,rhoy,rhoz

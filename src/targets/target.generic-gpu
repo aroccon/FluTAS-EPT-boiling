@@ -25,7 +25,7 @@ LDFLAGS :=
 USE_NVTX = 0
 
 # Required for FFTW
-#FFTW_HOME := /data/nicolos/libraries/fftw-3.3.9
+FFTW_HOME := /leonardo/prod/spack/06/install/0.22/linux-rhel8-icelake/gcc-12.2.0/fftw-3.3.10-f3ms2lmqzjugb43xzrxjkvmvohumyruy
 LDFLAGS   += -L${FFTW_HOME}/lib -lfftw3
 
 FFLAGS    += -cuda -acc -gpu=cc70  -cudalib=cufft,curand 
