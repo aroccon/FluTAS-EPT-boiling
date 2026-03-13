@@ -1,0 +1,6 @@
+0                             ! wall point hight
+15.0                          ! solid conductivity
+500                           ! solid cp
+8000                          ! solid desity
+375.15                        ! solid temperature at t=0
+F 0.0  0.0  0.0  0.0  0.0     ! is there a heater at the surface? what is the spatial extension of the heater? (x0,x1,y0,y1)

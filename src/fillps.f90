@@ -38,8 +38,9 @@ module mod_fillps
     integer                                                             :: x_start,x_stop
     integer                                                             :: y_start,y_stop
     integer                                                             :: z_start,z_stop
-    !@cuf attributes(managed) :: p, u, v, w, dzfi
-
+    !
+    !@cuf attributes(managed) :: p, u, v, w,mfx,mfy,mfz,src,rho,outflow_ind
+    !
     x_start = 0
     x_stop  = 0
     y_start = 0
@@ -62,6 +63,7 @@ module mod_fillps
     !
     allocate(outflow_ind(0:nx+1,0:ny+1,0:nz+1))
     outflow_ind(:,:,:) = 0.0_rp
+    !$acc kernels
     do k=IBM_h+z_start,nz-z_stop+1
       do j=y_start,ny-y_stop+1
         do i=x_start,nx-x_stop+1
@@ -69,6 +71,7 @@ module mod_fillps
         enddo
       enddo
     enddo
+    !$acc end kernels 
     !
     dtidxi = dti*dxi
     dtidyi = dti*dyi
@@ -131,13 +134,12 @@ module mod_fillps
         enddo
       enddo
     endif    
-    deallocate(outflow_ind)
-    !
 #if defined(_OPENACC)
     !$acc end kernels 
 #else
     !$OMP END PARALLEL DO
 #endif
+    deallocate(outflow_ind)
     !
     return
   end subroutine fillps

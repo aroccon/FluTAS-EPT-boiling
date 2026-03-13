@@ -251,6 +251,7 @@ end subroutine rk_ent_ibm
 
   subroutine diff_ent_ibm(n,dli,nh_d,nh_v,dzc,dzf,cond,s,dsdt,rhocp,src,psi,nor) 
     ! corrections required for stability reasons because of jumps on the conductivity at the immersed surface
+    ! compare with ch. 4.7 and 7.4 in: L. Weber, PhD Thesis, Karlsruhe Institute of Technology, 2026, https://doi.org/10.5445/IR/1000190080
     use mod_param       ,only: cond1,cond2,eps_int,IBM_h,h01,h02,cp1,cp2,heater_power
     use mod_boiling     ,only: heater_ind
     !
@@ -1127,7 +1128,7 @@ end subroutine rk_ent_ibm
     real(rp), dimension(n(1),n(2),n(3)) :: dpsidtrk
     real(rp) :: tot_reg,phase_change
     !#if defined(_CONTACT_LINE)
-    real(rp) :: int_den,q_t,tot_lag
+    real(rp) :: int_den,q_t,tot_lag,aux
     !#endif
     integer  :: i,j,k
     real(rp), dimension(:,:,:), allocatable :: helper
@@ -1493,10 +1494,19 @@ end subroutine rk_ent_ibm
     real(rp), intent(in )                                     :: gamma_v
     real(rp), intent(out)                                     :: u_reg
     !
-    real(rp) :: abs_u_ijk ,ux,vx,wx,uy,vy,wy,uz,vz,wz
+    real(rp) :: abs_u_ijk ,ux,vx,wx,uy,vy,wy,uz,vz,wz,aux
     integer  :: i,j,k
     !
     u_reg = 0._rp 
+    !####### TEST psi ###########
+      aux = max(maxval(u(0:n(1)+1,0:n(2)+1,0:n(3)+1)), &
+                maxval(v(0:n(1)+1,0:n(2)+1,0:n(3)+1)), &
+                maxval(w(0:n(1)+1,0:n(2)+1,0:n(3)+1)))
+      call mpi_allreduce(MPI_IN_PLACE,aux,1,MPI_REAL_RP,MPI_MAX,MPI_COMM_WORLD,ierr)
+      if(myid.eq.0) print*, 'vel test:', aux
+      if(myid.eq.0) print*, 'u_reg test:', u_reg
+      !####### END TEST psi ###########
+    !$acc parallel loop reduction(max:u_reg)
     do k=1,n(3)
       do j=1,n(2)
         do i=1,n(1)
@@ -1522,9 +1532,15 @@ end subroutine rk_ent_ibm
         enddo
       enddo
     enddo
-    !u_reg = 0.1
+    !$acc end parallel loop
+    u_reg = 0.1
     call mpi_allreduce(MPI_IN_PLACE,u_reg,1,MPI_REAL_RP,MPI_MAX,comm_cart,ierr)
+     if(myid.eq.0) print*, 'u_reg test:', u_reg
     if (u_reg.EQ.0.0_rp ) u_reg = 0.01_rp
+          !####### TEST psi ###########
+      if(myid.eq.0) print*, 'u_reg test:', u_reg
+            if(myid.eq.0) print*, 'gamma_v test:', gamma_v
+      !####### END TEST psi ###########
     u_reg = gamma_v*u_reg
     !
     return
