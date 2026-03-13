@@ -1,0 +1,12 @@
+T                            ! Modified set of CDI-NSE coupling  (F-Original , T-Modified)
+T                            ! Use alternative solver (F-Frantzis (2019), T - FFT-MPDJ Solver)
+1.0    1.0                   ! lower bound restriction of GAMMA and EPSILON (CDI interface parameters) for adaptive timestepping
+T     0.7  0.7   0.7         ! Use phase change module? and what is the phase change factor? For each axis direction (see PhD Thesis L. Weber p.141-144)
+T     0.25                   ! Trigger 3D output after constant time intervals?
+nuc_sites_1.in               ! specify name of input file for bubble nucleation sites
+P P  D D  D D                ! x-component BC for reg term  (value is always zero)
+P P  D D  D D                ! y-component BC for reg term  (value is always zero)
+P P  D D  D D                ! z-component BC for reg term  (value is always zero)
+3   0.04  F                  ! outflow direction (0=no outflow), outflow region length, forced convection flow?
+0   1.0   0.03  18  0.16  4  ! cyclic bc with PI flow controller: dir bulk_vel cyclic_length  start_integral   i_value  p_value
+none     F F  F F  F F       ! Which LES-Type? (smag - standard Smagorinsky, none - no Model). Which boundary is wall? (x0, x1, y0, y1, z0, z1) 

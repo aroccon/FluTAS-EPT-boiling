@@ -14,7 +14,7 @@ public
 real(rp), dimension(:,:)  , allocatable         :: nuc_sites
 integer , dimension(:)    , allocatable         :: nuc_sites_chk,nuc_sites_consider,site_activation
 real(rp) , dimension(:)    , allocatable        :: nuc_sites_consider_dir
-integer                                         :: num_sites,out_dir,in_dir,out_rk_safety
+integer                                         :: num_sites,out_dir,out_rk_safety,in_dir
 real(rp)                                        :: nuc_rad,out_len,const_out_time
 real(rp)                                        :: u_gas,u_liquid,u_cap
 logical                                         :: out_forced,in_active,use_mod_nse,use_mod_solver
@@ -83,8 +83,8 @@ subroutine init_boiling(n,dl,trigger_out_3D)
     read(iunit,*) in_dir,in_force,in_len,int_start_bulk,alpha_c,beta_c
     read(iunit,*) sgstype,wall(0,1),wall(1,1),wall(0,2),wall(1,2),wall(0,3),wall(1,3)
   else
-    if(myid.eq.0) print*, 'Error reading the boiling.in input file' 
-    if(myid.eq.0) print*, 'Input file missing or incomplete' 
+    if(myid.eq.0) print*, 'Error reading the boiling.in input file'
+    if(myid.eq.0) print*, 'Input file missing or incomplete'
     if(myid.eq.0) print*, 'Aborting...'
     call MPI_FINALIZE(ierr)
     call exit
@@ -1021,42 +1021,35 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           rhoz     = 0.5*(rho(i,j,k)+rho(i,j,k+1))
           !_______________________________________
           ! Scaling in z
-          !h_val    = max((l(2)-y-0.5*dl(2)),0.0_rp) ! is is bad!
-          h_val    = max((l(2)-y+0.5*dl(2)),0.0_rp)
-          h_val    = (2.0/(1.0+exp(4.0*h_val/out_len)))          
+          h_val    = (2.0/(1.0+exp(4.0*(l(2)-y+0.5*dl(2))/out_len)))          
           u_e      = phiz*u_gas + (1.0-phiz)*u_liquid
           ! scaling part:
-          !dwdt = h_val*(min(1.0,abs(u_e/wold(i,j,k)))-1.0)*wold(i,j,k)/f_t12
-          dwdt = - 0.2*h_val*wold(i,j,k)/f_t12
+          dwdt = h_val*(min(1.0,abs(u_e/wold(i,j,k)))-1.0_rp)*wold(i,j,k)/f_t12
+          if(out_forced) dwdt = - 0.2*h_val*wold(i,j,k)/f_t12
           ! convection 
           dwdt = dwdt - abs(u_e)*h_val*(wold(i,j,k)-wold(i,j-1,k))/dl(2)   ! first order upwind scheme was important for stability!
           !_______________________________________
           ! Scaling in y
-          !h_val    = max((l(2)-y-1.0_rp*dl(2)),0.0_rp) ! is is bad!
-          h_val    = max((l(2)-y),0.0_rp)
-          h_val    = (2.0/(1.0+exp(4.0*h_val/out_len)))
+          h_val    = (2.0/(1.0+exp(4.0*(l(2)-y)/out_len)))
           u_e      = phiy*u_gas + (1.0-phiy)*u_liquid
           ! scaling part:
-          dvdt = h_val*(min(1.d0,abs(u_e/vold(i,j,k)))-1.0d0)*vold(i,j,k)/f_t12
-          if(vold(i,j,k).le.(0.1*u_e)) dvdt = - h_val*(vold(i,j,k)-(0.1*u_e))/f_t12
+          dvdt = h_val*(min(1.d0,abs(u_e/vold(i,j,k)))-1.0_rp)*vold(i,j,k)/f_t12
+          if((vold(i,j,k).le.(0.1*u_e)).AND.out_forced) dvdt = - h_val*(vold(i,j,k)-(0.1*u_e))/f_t12
           ! convection 
           dvdt = dvdt - abs(u_e)*h_val*(vold(i,j,k)-vold(i,j-1,k))/dl(2) ! first order upwind scheme was important for stability!
           !_______________________________________
           ! Scaling in x
-          !h_val    = max((l(2)-y-0.5*dl(2)),0.0_rp) ! is is bad!
-          h_val    = max((l(2)-y+0.5*dl(2)),0.0_rp)
-          h_val    = (2.0/(1.0+exp(4.0*h_val/out_len))) 
+          h_val    = (2.0/(1.0+exp(4.0*(l(2)-y+0.5*dl(2))/out_len))) 
 #if defined(_TWOD)
           u_e      = 0.0
 #else
           u_e      = phix*u_gas + (1.0-phix)*u_liquid
 #endif
           ! scaling part:
-          !dudt = h_val*(min(1.0,abs(u_e/uold(i,j,k)))-1.0)*uold(i,j,k)/f_t12
-          dudt = - 0.2*h_val*uold(i,j,k)/f_t12
+          dudt = h_val*(min(1.0,abs(u_e/uold(i,j,k)))-1.0_rp)*uold(i,j,k)/f_t12
+          if(out_forced) dudt = - 0.2*h_val*uold(i,j,k)/f_t12
           ! convection 
           dudt = dudt - abs(u_e)*h_val*(uold(i,j,k)-uold(i,j-1,k))/dl(2) ! first order upwind scheme was important for stability!
-          ! Even in the Two-D Case, the dudt term is important for stability
           !_______________________________________
           u(i,j,k) = u(i,j,k) + rhox*dudt*f_t12
           v(i,j,k) = v(i,j,k) + rhoy*dvdt*f_t12
@@ -1066,6 +1059,7 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
     enddo
   !###################### Positive Z-direction ###################################
   case(3)
+    if(out_forced.AND.(myid.eq.0)) print*, 'WARNING: Forced convection is not implemented for this direction!'
     do k=IBM_h+1,n(3) !
       z = (k+ijk_start(3))*dl(3)
       do j=1,n(2)
@@ -1106,7 +1100,6 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           dudt = h_val*(min(1.d0,abs(u_e/uold(i,j,k)))-1.d0)*uold(i,j,k)/f_t12
           ! convection 
           dudt = dudt - abs(u_e)*h_val*(uold(i,j,k)-uold(i,j,k-1))/dl(3) ! first order upwind scheme was important for stability!
-          ! Even in the Two-D Case, the dudt term is important for stability
           !_______________________________________
           u(i,j,k) = u(i,j,k) + rhox*dudt*f_t12
           v(i,j,k) = v(i,j,k) + rhoy*dvdt*f_t12
@@ -1116,6 +1109,7 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
     enddo
   !###################### Negative Z-direction ###################################
   case(-3)
+    if(out_forced.AND.(myid.eq.0)) print*, 'WARNING: Forced convection is not implemented for this direction!'
     do k=IBM_h+1,n(3) !
       z = (k+ijk_start(3))*dl(3)
       do j=1,n(2)
@@ -1163,7 +1157,6 @@ subroutine add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12
           !if((0.25*(wold(i,j,k)+wold(i,j,k-1)+wold(i+1,j,k)+wold(i+1,j,k-1))).LT.0.0) upwind = 1
           dudt = dudt + rhox*abs(u_e)*h_val*(uold(i,j,k+1)-uold(i,j,k))/dl(3)
           ! Sign is switched here because of negative direction!!!
-          ! Even in the Two-D Case, the dudt term is important for stability
           !_______________________________________
           u(i,j,k) = u(i,j,k) + dudt*f_t12
           v(i,j,k) = v(i,j,k) + dvdt*f_t12
@@ -1799,6 +1792,9 @@ end subroutine cmpt_nusselt
 !_______________________________________________________________________________
 
 subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_int,dzc,dzf,halo_v,rhocp,mu_t,rho,cond,nor)
+  ! This subroutine is based on
+  ! [1] Lorenz Weber et al. (2026), DOI: https://doi.org/10.1016/j.jcp.2026.114680
+  ! [2] Lorenz Weber (2026), PhD Thesis, DOI: https://doi.org/10.5445/IR/1000190080
   !
   use mod_common_mpi, only: MPI_PROC_NULL,left,right,front,back,top,bottom
   use mod_param     , only: IBM_h,cond1,cond2,h01,h02,cp1,cp2,pi,cbcpsi,bcpsi,rho1,rho2,is_outflow,heater_power
@@ -1824,13 +1820,15 @@ subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_
   real(rp)                                                       :: delta1,delta2,delta3
   real(rp), parameter                                            :: small = real(2.e-14,rp)
   !@cuf attributes(managed) :: dzf,src,dzc
+  !
+  ! Determine nondimensional interface thickness
   dlmin   = minval(dl(1:3))
   eps1    = min_eps_prime*dlmin/(dl(1))
   eps2    = min_eps_prime*dlmin/(dl(2))
   eps3    = min_eps_prime*dlmin/(dl(3))
   !_________________________________________________
   ! Phasechnage is switched off in outflow region
-  !First give default values:
+  ! First give default values:
   x_start = 0
   x_stop  = 0
   y_start = 0
@@ -1838,10 +1836,10 @@ subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_
   z_start = 0
   z_stop  = 0
   min_dist = 3 ! Minimum distance of source term from any outflow BC
-  ! Length = number of points within outflow region
+  ! Length = number of points within outflow region:
   length = int((out_len)/dl(2))
   if(out_dir.NE.0) min_dist=max(min_dist,length)
-  ! Taking the is_outflow argument into account too!
+  ! Taking the is_outflow argument into account too:
   if    (is_outflow(0,1).AND.(left .eq.MPI_PROC_NULL)) then
     x_start = min_dist
   elseif(is_outflow(1,1).AND.(right.eq.MPI_PROC_NULL)) then
@@ -1862,39 +1860,43 @@ subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_
   do k=IBM_h+1+z_start,n(3)-z_stop
     do j=1+y_start,n(2)-y_stop
      do i=x_start+1,n(1)-x_stop
-       !
+       !------------------ in x-Dir ----------------------------
        ! Phase change timescale: Assumption that the heat conduction of the liquid dictates the phase change
-       t_char = (dl(1)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb)))
+       !t_char for x-direction, See Eq. 52 in [1], with LES extension chapter 7.5 in [2]:
+       t_char = (dl(1)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb))) 
        ! deltaT -> Change of Temperature during dt due to phase change
        !           Note: Instantanous phase change would mean deltaT = (T_saturation - T). 
        !                 But for the phase field method, additional terms are needed
-       !
+       ! See Eq. 50 in [1]:
        !              term1           term2                     term3 
        delta1 =  (f_t12/t_char)   *  pc_factor1   *    (1.0/(((rho1*cp1)/(rho2*cp2))*psi(i,j,k)+(1.0_rp-psi(i,j,k)))) &
                 *   (0.5_rp+0.5_rp*cos(2.0_rp*pi*abs(psi(i,j,k)-0.5_rp)))         *    1.0/eps1
        !                              term4                                             term6
-       !
+       !------------------ in y-Dir ----------------------------
        ! Phase change timescale: Assumption that the heat conduction of the liquid dictates the phase change
-       t_char = (dl(2)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb)))
+       !t_char for y-direction, See Eq. 52 in [1], with LES extension chapter 7.5 in [2]:
+       t_char = (dl(2)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb))) 
        ! deltaT -> Change of Temperature during dt due to phase change
        !           Note: Instantanous phase change would mean deltaT = (T_saturation - T). 
        !                 But for the phase field method, additional terms are needed
-       !
+       ! See Eq. 50 in [1]:
        !              term1           term2                     term3 
        delta2 =  (f_t12/t_char)   *  pc_factor2   *    (1.0/(((rho1*cp1)/(rho2*cp2))*psi(i,j,k)+(1.0_rp-psi(i,j,k)))) &
                 *   (0.5_rp+0.5_rp*cos(2.0_rp*pi*abs(psi(i,j,k)-0.5_rp)))         *    1.0/eps2
        !                              term4                                             term6
-       !
+       !------------------ in z-Dir ----------------------------
        ! Phase change timescale: Assumption that the heat conduction of the liquid dictates the phase change
-       t_char = (dl(3)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb)))
+       !t_char for z-direction, See Eq. 52 in [1], with LES extension chapter 7.5 in [2]:
+       t_char = (dl(3)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb))) 
        ! deltaT -> Change of Temperature during dt due to phase change
        !           Note: Instantanous phase change would mean deltaT = (T_saturation - T). 
        !                 But for the phase field method, additional terms are needed
-       !
+       ! See Eq. 50 in [1]:
        !              term1           term2                     term3 
        delta3 =  (f_t12/t_char)   *  pc_factor3   *    (1.0/(((rho1*cp1)/(rho2*cp2))*psi(i,j,k)+(1.0_rp-psi(i,j,k)))) &
                 *   (0.5_rp+0.5_rp*cos(2.0_rp*pi*abs(psi(i,j,k)-0.5_rp)))         *    1.0/eps3
        !                              term4                                             term6
+       !------------------ explanantions ------------------------
        !  term1 ->  relate phase change speed to current timestep size
        !  term2 ->  model constant (problem independent), 0.7
        !  term3 ->  weighting the phase change speed by rhocp to have faster phase change on gas side
@@ -1905,21 +1907,25 @@ subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_
        !            Note: Reference temperature for tmp(:,:,:) is the saturation temperature already!
        !  term6 ->  adjusting the phase chnage speed (i.e. the temperature increment) to the interface thickness
        !            term5
+       !------------------ together ----------------------------
        deltaT = -   tmp(i,j,k)*(delta1*abs(small+nor(i,j,k,1))+delta2*abs(small+nor(i,j,k,2))+delta3*abs(small+nor(i,j,k,3))) &
-                              /(abs(small+nor(i,j,k,1))+abs(small+nor(i,j,k,2))+abs(small+nor(i,j,k,3)))
+                              /(abs(small+nor(i,j,k,1))+abs(small+nor(i,j,k,2))+abs(small+nor(i,j,k,3)))  ! See Eq. A.4 in [2]
+       !------------------ for walls ----------------------------
+       ! For solid walls: adjust deltaT. See Eq. A.6 in [2]
        T_wall = 0.0
        if((k.EQ.(IBM_h+1)).AND.(IBM_h.NE.0)) T_wall = (cond(i,j,k)*tmp(i,j,k)+cond(i,j,k-1)*tmp(i,j,k-1)) &
                                   /(cond(i,j,k)           +cond(i,j,k-1)             ) &
                                   +(heater_power*dl(3)*heater_ind(i,j))                &
                                   /(2.0_rp*(cond(i,j,k)+cond(i,j,k-1)))
        !
-       t_char = (dl(3)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb)))
+       t_char = (dl(3)**2)/(cond2/(rho2*cp2)+(mu_t(i,j,k)/(rho(i,j,k)*pr_turb)))  ! for z-direction, See Eq. 52 in [1]
        !
-       theta_lambda = (cond1/cond2)*psi(i,j,k)+(1.0_rp-psi(i,j,k))
+       theta_lambda = (cond1/cond2)*psi(i,j,k)+(1.0_rp-psi(i,j,k)) !See p. 145-146 in [2]
        !
        deltaT = deltaT - (f_t12/t_char)   *    (1.0/(((rho1*cp1)/(rho2*cp2))*psi(i,j,k)+(1.0_rp-psi(i,j,k))))*  theta_lambda  &  !
                                           *    (0.5_rp+0.5_rp*cos(2.0_rp*pi*abs(psi(i,j,k)-0.5_rp)))     *    2.0*  T_wall
-       !
+       !------------------ finalize ----------------------------
+       ! Now do Update: Refer to Algorithm 1 (lines 10-11) in [1]
        ! Step 1: Update temperature field
        tmp(i,j,k)    = tmp(i,j,k) + deltaT
        !
@@ -1933,7 +1939,7 @@ subroutine cmpt_phase_change(nh_u,nh_p,nh_v,nh_d,dli,dl,n,src,tmp,psi,f_t12,eps_
     enddo
    enddo
    !
-   ! Do MPI communication and BC (same as psi for now...)
+   ! Do MPI communication and BC (BC same as psi for now...)
    !
    call boundp(cbcpsi_n,n,bcpsi_n,nh_d,nh_v,halo_v,dl,dzc,dzf,src)
    !
@@ -2753,7 +2759,7 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
   real(rp)                                                       :: rho0i,f_ex
   real(rp) :: dtidxi,dtidyi,rxm,rxp,rym,ryp,rzm,rzp !!!
   !@cuf attributes(managed) :: dzc,dp2,dzci,dzf,dzfi,dp1,rho,vel_1_x,vel_1_y,vel_1_z,p
-  !@cuf attributes(managed) :: vel_2_x,vel_2_y,vel_2_z,dp3,rhsbx,rhsby,rhsbz,u,v,w
+  !@cuf attributes(managed) :: vel_2_x,vel_2_y,vel_2_z,dp3,rhsbx,rhsby,rhsbz,u,v,w,src_ph
 
   nse_switch = 0.0
   if(use_mod_nse)  nse_switch = 1.0
@@ -3498,8 +3504,18 @@ subroutine cmpt_regularization_acdi(nh_u,nh_p,nh_v,dli,n,s,ls,nor,u_reg,eps_int)
   real(rp)                                                     :: psifxp,psifyp,psifzp
   real(rp)                                                     :: gradpxp,gradpyp,gradpzp
   real(rp)                                                     :: norx,nory,norz
-  real(rp)                                                     :: lsx,lsy,lsz
+  real(rp)                                                     :: lsx,lsy,lsz,aux
   !
+  !
+      !####### TEST psi ###########
+      aux = sum(ls(1:n(1)+1,1:n(2)+1,1:n(3)+1))
+      if(myid.eq.0) print*, 'ls test:', aux
+            aux = sum(s(1:n(1)+1,1:n(2)+1,1:n(3)+1))
+      if(myid.eq.0) print*, 's test:', aux
+            aux = sum(nor(1:n(1)+1,1:n(2)+1,1:n(3)+1,1:3))
+      if(myid.eq.0) print*, 'nor test:', aux
+      if(myid.eq.0) print*, 'u_reg test:', u_reg
+      !####### END TEST psi ###########
   !
   do k=1+IBM_h,n(3)
     do j=1,n(2)
@@ -3552,6 +3568,7 @@ subroutine cmpt_regularization_acdi(nh_u,nh_p,nh_v,dli,n,s,ls,nor,u_reg,eps_int)
       enddo
     enddo
   enddo
+  !
   !
   return
 end subroutine cmpt_regularization_acdi

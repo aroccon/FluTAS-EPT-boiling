@@ -61,7 +61,7 @@
     CHARACTER(80) infile,restart_file
 
     !     extent, Volume of the virtual SyEM domain
-    integer,parameter       :: neddy = 150000
+    integer                 :: neddy
     real(rp) ,ALLOCATABLE   :: bulk_vel_diff(:,:) ! bulk velocity
     real(rp) ,ALLOCATABLE   :: z0(:),u0(:,:) ! bulk velocity
     real(rp) ,ALLOCATABLE   :: sigma_max(:),yplus_cutoff(:)
@@ -71,8 +71,8 @@
     real(rp) ,ALLOCATABLE   :: y_inlet(:) ! y mean value of inlet plane
     real(rp) ,ALLOCATABLE   :: z_inlet(:) ! z mean value of inlet plane
     real(rp) ,ALLOCATABLE   :: t_inlet(:) ! z mean value of inlet plane
-    real(rp), ALLOCATABLE   :: ex(:),ey(:),ez(:),eps(:,:)
-    real(rp), DIMENSION(1:neddy,1:6)   :: eddy
+    real(rp) ,ALLOCATABLE   :: ex(:),ey(:),ez(:),eps(:,:)
+    real(rp) ,ALLOCATABLE   :: eddy(:,:)
     integer                 :: start_edd,stop_edd
 
     !     box in rotated frame (SyEM)
@@ -209,20 +209,23 @@
         !
         READ(fid,*)      ! skip header
         READ(fid,*) nlines(fam),sigma_max(fam),  &
-                    yplus_cutoff(fam),dir_xyz(fam)
+                    yplus_cutoff(fam),dir_xyz(fam),neddy
         !
         READ(fid,*)      ! skip header
+        IF(mod(neddy,2).NE.0) print*, 'ERROR: Number of eddies needs to be even!'
         ENDIF
         !
         CALL mpi_bcast(nlines,max_fam,MPI_INTEGER,0,comm_cart,ierr)
         CALL mpi_bcast(sigma_max,max_fam,MPI_REAL_RP,0,comm_cart,ierr)
         CALL mpi_bcast(yplus_cutoff,max_fam,MPI_REAL_RP,0,comm_cart,ierr)
         CALL mpi_bcast(dir_xyz,max_fam,MPI_INTEGER,0,comm_cart,ierr)
+        CALL mpi_bcast(neddy,1,MPI_INTEGER,0,comm_cart,ierr)
         !
         ALLOCATE(pos(nlines(fam),max_fam))
         ALLOCATE(umean(nlines(fam),max_fam))
         ALLOCATE(tke(nlines(fam),max_fam))
         ALLOCATE(dissip(nlines(fam),max_fam))
+        ALLOCATE(eddy(1:neddy,1:6))
         !
         pos       = 0._rp
         umean     = 0._rp

@@ -23,7 +23,7 @@ LDFLAGS     :=
 USE_NVTX = 0
 
 # Required for FFTW
-FFTW_HOME := /hkfs/home/project/hk-project-test-p0024989/pz6889/FluTAS/numerical_libraries/fftw-3.3.10/
+FFTW_HOME := /home/weber/FluTAS/numerical_libraries/fftw-3.3.10
 LDFLAGS   += -L${FFTW_HOME}/lib -lfftw3
 
 # Required for INIT_MONTECARLO

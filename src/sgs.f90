@@ -29,9 +29,9 @@ module mod_sgs
     ! to avoid negative values of averaged eddy viscosity (duct flow).
     !
     ! 2D filter is used in the first off-wall layer (Bae, Orlandi, LESGO and Balaras, 1995).
-    ! It is difficult to do 3D filtering of Sij in the first layer, though feasible for
+    ! It is difficult to do 3D filtering of Sij in the first layer, though feasible for 
     ! velocity.
-    !
+    ! default(present) async(1)
     implicit none
     integer , intent(in ), dimension(3)                      :: n
     real(rp), intent(in ), dimension(0:)                     :: dzc,dzf,dzci,dzfi
@@ -49,11 +49,12 @@ module mod_sgs
     logical , dimension(0:1,3)                               :: is_bound
     real(rp)                                                 :: ibm_factor
     !
+    !
     select case(trim(sgstype))
     case('none')
       if(is_first) then
         is_first = .false.
-        !$acc kernels default(present) async(1)
+        !$acc kernels
         visct(:,:,:) = 0._rp
         !$acc end kernels
       end if

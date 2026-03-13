@@ -1,0 +1,6 @@
+4              ! wall point hight
+28.4           !solid conductivity 15
+750            !solid cp    500
+3980           !solid desity       8000
+-0.5            !solid temperature at t=0
+T 0 1 0.00015 0.00115 1e6  !surface heater: switch, x0, x1, y0, y1, and power in W/m^2
