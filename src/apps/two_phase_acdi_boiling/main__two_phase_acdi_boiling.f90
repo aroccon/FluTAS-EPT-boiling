@@ -19,20 +19,19 @@ program flutas
   !
   use iso_c_binding , only: C_PTR  
   use my_is_nan_mod , only: my_is_nan_real64   ! intrinsic isnan() does not work if compiled with -ffast-math flag
-  use mod_boiling   , only: nuc_sites,init_outflow,init_inflow &
-                           ,cmpt_avg_out_vel,add_outflow_force,u_gas,u_liquid  &
-                           ,add_inflow_force,collect_vel,apply_bound_vel,cbcreg,bcreg &
-                           ,outflow_psi,boundsb_arrayo,update_property_IBM &
-                           ,init_ent,cmpt_nusselt,corr_u_liquid &
-                           ,update_gamma_v,psi_bound_o,ent_bound_o,mu_bound_o,out_dir &
-                           ,static_contact_angle_m_ibm,surft_src_FEF,cmpt_phase_change &
-                           ,copy_fields,trigger_ouput,cmpt_regularization_acdi, &
-                           regularization_psi_cdi_ibm,use_mod_nse,adjust_bound_vel, &
-                           bcpsi_n,cbcpsi_n,set_IBM_vel_to_zero,mult_by_const, &
-                           rex,rey,rez,update_reg_terms,pres_tw_src,make_vol_avg_vel, &
-                           cmpt_u_grad_rho,mom_to_vel,add_a_to_b,calculate_new_pressure, &
-                           init_boiling,use_mod_solver,do_phasechnage,sgstype,pr_turb, &
-                           calculate_tot_surface,is_const_out_time
+  use mod_boiling   , only: add_inflow_force,collect_vel,apply_bound_vel,cbcreg,bcreg, &
+                            update_property_IBM,init_ent,cmpt_nusselt,update_gamma_v, &
+                            static_contact_angle_m_ibm,surft_src_FEF,cmpt_phase_change, &
+                            copy_fields,trigger_ouput,cmpt_regularization_acdi, &
+                            regularization_psi_cdi_ibm,use_mod_nse,adjust_bound_vel, &
+                            bcpsi_n,cbcpsi_n,set_IBM_vel_to_zero,mult_by_const, &
+                            rex,rey,rez,update_reg_terms,pres_tw_src,make_vol_avg_vel, &
+                            cmpt_u_grad_rho,mom_to_vel,add_a_to_b,calculate_new_pressure, &
+                            init_boiling,use_mod_solver,do_phasechnage,sgstype,pr_turb, &
+                            calculate_tot_surface,is_const_out_time,nuc_sites,init_inflow
+  use mod_outflow   , only: init_outflow,cmpt_avg_out_vel,corr_u_liquid,        &
+                            add_outflow_force,outflow_psi,boundsb_arrayo,       &
+                            psi_bound_o,ent_bound_o,mu_bound_o
   use mod_sem       , only: SEM_setup,SEMrestart,synthetic_eddies,dir_xyz
   use mpi
   use decomp_2d
@@ -465,6 +464,7 @@ allocate(c1_bound(1:n(1),1:n(2)))
   !
   !
   call init_boiling(n,dl,trigger_out_3D)
+  call init_outflow(n)
   call SEM_setup(n)
   call synthetic_eddies(0.0_rp,n)
   !

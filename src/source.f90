@@ -71,7 +71,7 @@ module mod_source
     !the input velocities are actually rho.u and the output as well
     !
     use mod_param,   only: sigma
-    use mod_boiling, only: out_len,out_dir
+    use mod_outflow, only: out_len,out_dir
     !
     implicit none 
     !
@@ -139,7 +139,8 @@ module mod_source
     !the input velocities are actually rho.u and the output as well
     !
     use mod_param    ,only: sigma,IBM_h,eps_int
-    use mod_boiling  ,only: out_len,out_dir,max_kappa,copy_fields
+    use mod_boiling  ,only: max_kappa,copy_fields
+    use mod_outflow  ,only: out_len,out_dir
     !
     implicit none 
     !

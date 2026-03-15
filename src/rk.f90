@@ -31,10 +31,11 @@ module mod_rk
     ! Note: --> suitable for both 2nd order Adams-Bashforth and 3rd order low-storage Runge-Kutta;
     !       --> source terms are included in the main program;
     !
-    use mod_boiling,     only: correct_mom,use_mod_nse,out_rk_safety,rex,rey,rez
+    use mod_boiling,     only: correct_mom,use_mod_nse,rex,rey,rez
     use mod_param  ,     only: no_outflow,rho1,rho2,is_outflow,IBM_h
     use mod_bound  ,     only: bounduvw
     use mod_common_mpi,  only: MPI_PROC_NULL,left,right,front,back,top,bottom
+    use mod_outflow,     only: out_rk_safety
     !
     implicit none
     !

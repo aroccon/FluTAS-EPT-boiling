@@ -57,7 +57,8 @@ gradls.o \
 sem.o \
 random.o \
 sgs.o \
-stats.o
+stats.o \
+outflow.o
 #
 ###########################################################
 ######## TO CUSTOMIZE BASED ON APPLICATION PHYSICS ########

@@ -89,10 +89,11 @@ subroutine rk_ent_ibm(f_t1,f_t2,n,dli,nh_d,nh_u,nh_v,dzc,dzf,eps_int,u_reg, &
      halo_van,ent_bound_o)
   !
   !
-  use mod_boiling,     only: rex,rey,rez,boundsb_arrayo
+  use mod_boiling,     only: rex,rey,rez
   use mod_param  ,     only: no_outflow,rho1,rho2,cp1,cp2,cbctmp,bctmp
   use mod_bound  ,     only: bounduvw,boundp
   use mod_gradls ,     only: weno5
+  use mod_outflow,     only: boundsb_arrayo
   ! low-storage 3rd-order Runge-Kutta scheme 
   ! for time integration of the Enthalpy field.
   !
