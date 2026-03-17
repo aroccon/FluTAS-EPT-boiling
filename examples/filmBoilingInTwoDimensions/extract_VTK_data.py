@@ -142,7 +142,9 @@ def FluTAS_to_VTK_2D(folder,scalarlist,vectorlist,z_corr,vel_corr,time):
         imageVTK.GetPointData().AddArray(vtk_data)
     print('Write VTK object for time '+str(time))
     writer = vtk.vtkXMLImageDataWriter()
-    writer.SetFileName(folder+('000000'+'{:0.0f}'.format(1e3*time))[-7:-1]+'.vti')
+    vtiname = ('000000'+'{:0.0f}'.format(1e3*time))[-7:]+'.vti'
+    print('Printing file: '+ vtiname)
+    writer.SetFileName(folder+vtiname)
     writer.SetInputData(imageVTK)
     writer.Update()
     writer.Write()

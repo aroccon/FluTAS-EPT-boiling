@@ -106,7 +106,7 @@ l_ast,l_ref,St
 # Plot some VTK files
 
 folder        = 'data'
-files_to_plot = ['000050.vti','000075.vti','000100.vti']
+files_to_plot = ['0000500.vti','0000750.vti','0001000.vti']
 color         = 'hotpink'
 
 fig, ax = plt.subplots(1,3,figsize=(9, 4),sharey=True)
@@ -130,7 +130,7 @@ for file in reversed(files_to_plot):
     y_ = np.concatenate((y,np.flip(y, axis=axis)),axis=axis)
     phi_ = np.concatenate((phi,np.flip(phi, axis=axis)),axis=axis)
     ax[files_to_plot.index(file)].contour(x_,y_,phi_,levels=[0.5],linestyles=['solid'],colors=[color])
-    time = float(file.split('.')[0].lstrip('0'))/100 # in ms
+    time = float(file.split('.')[0].lstrip('0'))/1000 # in ms
     time_text = r't= {:0.2f} s'.format(time)
     ax[files_to_plot.index(file)].text(x_loc,y_loc,time_text,fontsize=12)
 

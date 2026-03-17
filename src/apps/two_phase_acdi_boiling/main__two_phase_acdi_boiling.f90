@@ -955,10 +955,10 @@ endif
   call update_reg_terms(nh_u,nh_p,nh_d,halo_u,nh_v,dli,n,psi,ls,nor,u_reg,eps_int,dl,dzc,dzf)
   call bounduvw(cbcvel,n,bcvel,nh_d,nh_u,halo_u,is_outflow,dl,dzc,dzf,u,v,w,rho,rex,rey,rez,0.0_rp,0.0_rp,.TRUE.)
 #if defined(_HEAT_TRANSFER)
-  call outflow_psi(n,dl,nh_v,ent,u,v,w,f_t12,ent_bound_o,ent,.FALSE.,0.d0)
+  call outflow_psi(n,dl,nh_v,ent,u,v,w,f_t12,ent_bound_o,ent,0.d0)
 #endif
 #if defined(_TWO_PHASE)
-  call outflow_psi(n,dl,nh_v,psi,u,v,w,f_t12,psi_bound_o,ent,.FALSE.,0.d0)
+  call outflow_psi(n,dl,nh_v,psi,u,v,w,f_t12,psi_bound_o,ent,0.d0)
 #endif
   !call exit
   do while(.not.is_done)
@@ -1127,7 +1127,7 @@ endif
 #else  
    call boundp_IBM(cbcpsi,n,bcpsi,nh_d,nh_v,halo_v,dl,dzc,dzf,psi,IBM_h)
 #endif
-   call outflow_psi(n,dl,nh_v,psi,u,v,w,f_t12,psi_bound_o,ent,.FALSE.,0.d0)
+   call outflow_psi(n,dl,nh_v,psi,u,v,w,f_t12,psi_bound_o,ent,0.d0)
    call boundsb_arrayo(n,nh_v,halo_v,psi,psi_bound_o)
   !
   ! This is for the curvature: no required here with phase change -> will be calculated after adding the mass transfer term
@@ -1212,7 +1212,8 @@ endif
       deallocate(cond_turb)
     endif
     !    Advance temperature field without phase chnage first
-    call outflow_psi(n,dl,nh_v,ent,u,v,w,f_t12,ent_bound_o,ent,.FALSE.,0.d0)
+    call outflow_psi(n,dl,nh_v,ent,u,v,w,f_t12,ent_bound_o,ent,0.d0)
+    !             Back flow fluid is always at saturation temperature <-'
     call rk_ent_ibm(f_t1,f_t2,n,dli,nh_d,nh_u,nh_v,dzc,dzf,eps_int,u_reg, &
                u,v,w,src_ph,norold,ent,cond,ent,dentdtrko,rhocp,halo_u,dl,nh_p,psiold, &
                lsold,f_t12,nh_van,halo_van,ent_bound_o)
@@ -1230,7 +1231,7 @@ endif
 #else  
       call boundp_IBM(cbcpsi,n,bcpsi,nh_d,nh_v,halo_v,dl,dzc,dzf,psi,IBM_h)
 #endif
-      call outflow_psi(n,dl,nh_v,psi,u,v,w,f_t12,psi_bound_o,ent,.FALSE.,0.d0) !psiold !!!
+      call outflow_psi(n,dl,nh_v,psi,u,v,w,f_t12,psi_bound_o,ent,0.d0) !psiold !!!
       call boundsb_arrayo(n,nh_v,halo_v,psi,psi_bound_o)
       !
 #if defined(_USE_ACDI)
