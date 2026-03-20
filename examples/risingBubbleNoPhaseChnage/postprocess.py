@@ -143,7 +143,7 @@ def read_sphericity(sub_dir,t_ref):
     t_sphereicity = list()
     bubb_data = list()
     timesteps = set()
-    input = open('./data/post/concatenate/concatenated_bubbles.dat', 'r')
+    input = open('./'+sub_dir+'/post/concatenate/concatenated_bubbles.dat', 'r')
     lines = input.readlines()
     data_names = lines[0].split()
     for line in lines[1:]:
@@ -212,7 +212,7 @@ def read_bubble_center_and_velocity2(sub_dir,t_ref,u_ref):
     t_riseVelocity = list()
     bubb_data = list()
     timesteps = set()
-    input = open('./data/post/concatenate/concatenated_bubbles.dat', 'r')
+    input = open('./'+ sub_dir +'/post/concatenate/concatenated_bubbles.dat', 'r')
     lines = input.readlines()
     data_names = lines[0].split()
     for line in lines[1:]:
