@@ -132,8 +132,14 @@ program flutas
   !  note: --> first declare arrays, then the other variables;
   !        --> order of declaration: type, dimension, allocatable;
   !
-  real(rp), dimension(:,:,:), allocatable :: u,v,w,div,p,mfx,mfy,mfz,uold,vold,wold
-  real(rp), dimension(:,:,:), allocatable :: pold,ind_IBM,force_IBM
+  real(rp), dimension(:,:,:), allocatable :: u,v,w          ! Velocities in x,y,z
+  real(rp), dimension(:,:,:), allocatable :: div            ! Divergence
+  real(rp), dimension(:,:,:), allocatable :: p              ! Pressure
+  real(rp), dimension(:,:,:), allocatable :: mfx,mfy,mfz    ! Aux. variable for storing the barycentric velocity * density
+  real(rp), dimension(:,:,:), allocatable :: uold,vold,wold ! Velocities in x,y,z of old timestep
+  real(rp), dimension(:,:,:), allocatable :: pold           ! Pressure of old timestep
+  real(rp), dimension(:,:,:), allocatable :: ind_IBM
+  real(rp), dimension(:,:,:), allocatable :: force_IBM
   real(rp), dimension(:,:,:), allocatable :: mu,rho,muold,rhoold,rho_new,rho_gas
   real(rp), dimension(:,:,:), allocatable ::   mu_t   ! for LES
   real(rp), dimension(:,:,:), pointer :: dudtrko,dvdtrko,dwdtrko
