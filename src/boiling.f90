@@ -233,7 +233,7 @@ end subroutine update_property_IBM
 !###                          subrouties       ###
 !#################################################
 !
-subroutine init_ent(nh_p,h1,h2,h3,h03,n,psi,ind_IBM,ent,dl)
+subroutine init_ent(nh_p,h1,h2,h3,h03,n,psi,ent,dl)
   !
   use mod_param     , only: rho1,cp1,tg0,h01,rho2,cp2,tl0,h02,IBM_rho, &
                             IBM_cp,IBM_iniT,inipsi,eps_int,pi,xc,yc,zc,r,IBM_h
@@ -242,7 +242,7 @@ subroutine init_ent(nh_p,h1,h2,h3,h03,n,psi,ind_IBM,ent,dl)
   integer  , intent(in   )                                     :: nh_p
   real(rp) , intent(inout)                                     :: h1,h2,h3,h03
   integer  , intent(in   ), dimension(3)                       :: n 
-  real(rp) , intent(in   ), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: psi,ind_IBM
+  real(rp) , intent(in   ), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: psi
   real(rp) , intent(  out), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: ent
   real(rp) , intent(in   ), dimension(3)                       :: dl
   integer                                                      :: iunit,i,temp_dir,temp_count

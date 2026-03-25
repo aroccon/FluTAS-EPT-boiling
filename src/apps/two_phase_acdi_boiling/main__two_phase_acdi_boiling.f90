@@ -132,62 +132,92 @@ program flutas
   !  note: --> first declare arrays, then the other variables;
   !        --> order of declaration: type, dimension, allocatable;
   !
-  real(rp), dimension(:,:,:), allocatable :: u,v,w          ! Velocities in x,y,z
-  real(rp), dimension(:,:,:), allocatable :: div            ! Divergence
-  real(rp), dimension(:,:,:), allocatable :: p              ! Pressure
-  real(rp), dimension(:,:,:), allocatable :: mfx,mfy,mfz    ! Aux. variable for storing the barycentric velocity * density
-  real(rp), dimension(:,:,:), allocatable :: uold,vold,wold ! Velocities in x,y,z of old timestep
-  real(rp), dimension(:,:,:), allocatable :: pold           ! Pressure of old timestep
-  real(rp), dimension(:,:,:), allocatable :: ind_IBM
-  real(rp), dimension(:,:,:), allocatable :: force_IBM
-  real(rp), dimension(:,:,:), allocatable :: mu,rho,muold,rhoold,rho_new,rho_gas
-  real(rp), dimension(:,:,:), allocatable ::   mu_t   ! for LES
-  real(rp), dimension(:,:,:), pointer :: dudtrko,dvdtrko,dwdtrko
-  real(rp), dimension(:), allocatable :: dzc  ,dzf  ,zc  ,zf  ,dzci  ,dzfi
-  real(rp), dimension(:), allocatable :: dzc_g,dzf_g,zc_g,zf_g,dzci_g,dzfi_g
-  !
-  real(rp), dimension(:,:,:)  , allocatable :: psi,kappa,psiold,kappaold 
-  real(rp), dimension(:,:,:,:), allocatable :: nor,norold                   
-  real(rp), dimension(:,:,:)  , allocatable :: ls,dpsidtrko,lsold
-  real(rp), dimension(:,:,:)  , allocatable :: c1,c2,dc1dtrko,dc2dtrko,src_ph,omega_s,diff,omega,p_sat
-  real(rp), dimension(:,:,:)  , allocatable :: ent,rhoh,tmp,cond,rhocp,dentdtrko
-  real(rp), dimension(:,:,:)  , allocatable :: condold,rhocpold,lh,cond_turb
-  real(rp), dimension(:,:,:)  , allocatable :: ur,vr,wr
-  real(rp), dimension(:,:,:)  , allocatable :: regarx,regary,regarz,source
-  !######## All following varables are test fields!...  #############
-  real(rp)                                :: f1_,f2_,omega_min,c1_min,c1_max
-  !######## ...until here!                              #############
-  !
-  real(rp), dimension(:,:,:)  , allocatable :: delta
-
-  real(rp), dimension(:,:)  , allocatable :: psi_bound,c1_bound,ls_bound
-  !
-  type(C_PTR), dimension(2,2) :: arrplanp
-  real(rp), allocatable, dimension(:,:) :: lambdaxyp
-  real(rp), allocatable, dimension(:)   :: ap,bp,cp
-  real(rp) :: normfftp
-  ! 
-  real(rp), allocatable, dimension(:,:,:) :: rhsbp_x, rhsbp_y, rhsbp_z
-  !
-  real(rp), dimension(3) :: f
-  real(rp) :: dt,dto,dti,dtmax,time,dtrk,dtrki,divtot,divmax, &
-              f_t1,f_t2,f_t12,f_t12_o,f_t12_i
+  real(rp), dimension(:,:,:)  , allocatable :: u,v,w                   ! Velocities in x,y,z
+  real(rp), dimension(:,:,:)  , allocatable :: div                     ! Divergence
+  real(rp), dimension(:,:,:)  , allocatable :: p                       ! Pressure
+  real(rp), dimension(:,:,:)  , allocatable :: mfx,mfy,mfz             ! Aux. variable for storing the barycentric velocity * density
+  real(rp), dimension(:,:,:)  , allocatable :: uold,vold,wold          ! Velocities in x,y,z of old timestep
+  real(rp), dimension(:,:,:)  , allocatable :: delta_p                 ! Pressure increment
+  real(rp), dimension(:,:,:)  , allocatable :: mu                      ! Mixture Viscosity
+  real(rp), dimension(:,:,:)  , allocatable :: rho                     ! Mixture Density
+  real(rp), dimension(:,:,:)  , allocatable :: muold,rhoold            ! Physical Properties (visc and dens.) of old timestep
+  real(rp), dimension(:,:,:)  , allocatable :: mu_t                    ! Eddy viscosity for LES
+  real(rp), dimension(:,:,:)  , pointer     :: dudtrko,dvdtrko,dwdtrko ! Temporal rate of change in t for u,v, and w at old timestep
+  real(rp), dimension(:)      , allocatable :: dzc  ,dzf               ! Local gridspcing along z axis (cell centered and face centered)
+  real(rp), dimension(:)      , allocatable :: zc  ,zf                 ! Local z coordinates along z axis (cell centered and face centered)
+  real(rp), dimension(:)      , allocatable :: dzci  ,dzfi             ! Inverse of local gridspcing along z axis (cell centered and face centered)
+  real(rp), dimension(:)      , allocatable :: dzc_g,dzf_g             ! Global gridspcing along z axis (cell centered and face centered)
+  real(rp), dimension(:)      , allocatable :: zc_g,zf_g               ! Global z coordinates along z axis (cell centered and face centered)
+  real(rp), dimension(:)      , allocatable :: dzci_g,dzfi_g           ! Inverse of global gridspcing along z axis (cell centered and face centered)
+  real(rp), dimension(:,:,:)  , allocatable :: psi                     ! Phasefield
+  real(rp), dimension(:,:,:)  , allocatable :: kappa                   ! Curvature
+  real(rp), dimension(:,:,:)  , allocatable :: psiold                  ! Phasefield of old timestep
+  real(rp), dimension(:,:,:)  , allocatable :: kappaold                ! Curvature of old timestep
+  real(rp), dimension(:,:,:,:), allocatable :: nor,norold              ! Normal vector (current + old timestep)
+  real(rp), dimension(:,:,:)  , allocatable :: ls                      ! Levelset function
+  real(rp), dimension(:,:,:)  , allocatable :: dpsidtrko               ! Temporal rate of chnage for phasefield at old timestep
+  real(rp), dimension(:,:,:)  , allocatable :: lsold                   ! Levelset function at old timestep
+  real(rp), dimension(:,:,:)  , allocatable :: src_ph                  ! Source term due to phase change
+  real(rp), dimension(:,:,:)  , allocatable :: ent                     ! Temperature field (relative to Saturation temperature in K)
+  real(rp), dimension(:,:,:)  , allocatable :: dentdtrko               ! Temporal rate of change for temperature field at old timestep
+  real(rp), dimension(:,:,:)  , allocatable :: cond                    ! Mixture heat conductivity
+  real(rp), dimension(:,:,:)  , allocatable :: rhocp                   ! Mixture heat capacity (per unit volume), i.e. rho*cp
+  real(rp), dimension(:,:,:)  , allocatable :: condold,rhocpold        ! Heat conductivity and capacity of old timestep
+  real(rp), dimension(:,:,:)  , allocatable :: cond_turb               ! Turbulent heat conductivity due to subgrid turbulence (for LES)
+  real(rp), dimension(:,:,:)  , allocatable :: lh                      ! Mixture Enthalpy of formation
+  real(rp), dimension(:,:)    , allocatable :: psi_bound,ls_bound      ! Boundary values on wall for phase field and levelset function
+  !____________________________________________________________________!
+  ! Arrays required for multi-component evaporation                    !
+  ! with an additional scalar field:                                   !
+  ! (Outdated)                                                         !
+  real(rp), dimension(:,:,:)  , allocatable :: c1,c2,dc1dtrko,dc2dtrko !
+  real(rp), dimension(:,:,:)  , allocatable :: diff,omega              !
+  real(rp), dimension(:,:,:)  , allocatable :: ur,vr,wr                !
+  real(rp)                                  :: omega_min               !
+  real(rp)                                  :: c1_min,c1_max           !
+  !____________________________________________________________________!
+  ! Required array for FFT solver:                                     !
+  type(C_PTR), dimension(2,2)               :: arrplanp                !
+  real(rp), dimension(:,:)    , allocatable :: lambdaxyp               !
+  real(rp), dimension(:)      , allocatable :: ap,bp,cp                !
+  real(rp)                                  :: normfftp                !
+  real(rp), dimension(:,:,:)  , allocatable :: rhsbp_x                 !
+  real(rp), dimension(:,:,:)  , allocatable :: rhsbp_y                 !
+  real(rp), dimension(:,:,:)  , allocatable :: rhsbp_z                 !
+  !____________________________________________________________________!
+  ! Timestep size variables:                                           !
+  real(rp)                                  :: dt                      ! Timestep size
+  real(rp)                                  :: dto                     ! Old timestep size
+  real(rp)                                  :: dti                     ! Inverse of timestep size
+  real(rp)                                  :: dtmax                   ! Maximum timestep size
+  real(rp)                                  :: time                    ! Physically enlapsed time
+  real(rp)                                  :: f_t12                   ! Timestep size
+  real(rp)                                  :: f_t12_o                 ! Old timestep size
+  real(rp)                                  :: f_t12_i                 ! Inverse of timestep size
+  real(rp)                                  :: f_t1,f_t2               ! Timestep size times factor for AB2 or RK3 scheme  
+  integer                                   :: istep                   ! N-th timestep / Timestep counter
 #if defined(_TIMING)
-  real(rp) :: dt12,dt12av,dt12min,dt12max
+  real(rp) :: dt12,dt12av,dt12min,dt12max                              !
 #endif
+  !____________________________________________________________________!
+  real(rp)                                  :: divtot,divmax           ! Total and maximum velocity divergence in domain
   !
-  integer, dimension(3)   :: halo_u,halo_p,halo_d,halo_v,halo_van
+  integer, dimension(3)                     :: halo_u,halo_p,halo_d    ! MPI data type for accessing neighbor subdomain
+  integer, dimension(3)                     :: halo_v,halo_van         ! MPI data type for accessing neighbor subdomain
+  integer                                   :: nh_d,nh_u,nh_p          ! Number of point layers to be communicated between neighbor subdomains through MPI
+  integer                                   :: nh_v,nh_van             ! Number of point layers to be communicated between neighbor subdomains through MPI
+
   integer, dimension(3)   :: dims
   integer, dimension(3,3) :: dims_xyz
-  integer  :: nh_d,nh_u,nh_p,nh_v,nh_van
+
   !
   integer  :: i,j,k,im,ip,jm,jp,km,kp
-  integer  :: irk,istep
+
   character(len=100) :: datadir,datadir_ta,restart_dir
   character(len=1)   :: action_load
   logical  :: is_data,trigger_out_3D,trigger_update
   !
-  real(rp) :: meanvel,meanvelu,meanvelv,meanvelw
+  real(rp) :: meanvelu,meanvelv,meanvelw
   real(rp), dimension(3) :: dpdl_c
   real(rp), dimension(10) :: var
   ! 
@@ -196,11 +226,8 @@ program flutas
   real(rp) :: twi,tw,phi_wall
   integer :: kk
   logical :: is_done,kill,do_divergence_reset
-  real(rp) :: rho0i,u_reg,tmp_min,tmp_max,u_reg_new
-  real(rp) :: rhoxp,rhoyp,rhozp,rhox,rhoy,rhoz,rhoxi,rhoyi,rhozi
-  real(rp) :: norx,nory,norz
-  real(rp) :: lsx,lsy,lsz
-  real(rp) :: phix,phiy,phiz,nse_switch
+  real(rp) :: rho0i,u_reg,tmp_min,tmp_max
+  real(rp) :: nse_switch
   !
   !@cuf integer :: istat
   !@cuf integer(kind=cuda_count_kind) :: freeMem, totMem
@@ -225,7 +252,7 @@ program flutas
   real(rp) ::  eta1, eta2, eta_tilde_1, eta_tilde_2, gamma1, gamma2
   real(rp) ::  h1, h2, h3, h03, s1, s2, g1, g2, Gama1, Gama2, cv1, cv2
 
-  real(rp) :: aux,A_aux,B_aux,auxp,auxm,C_aux
+  real(rp) :: aux
   integer  :: ii,jj,expon
   integer :: n1, n2, n3
   integer :: ng1, ng2, ng3
@@ -286,20 +313,14 @@ program flutas
            u(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
            uold(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
            mfx(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
-           regarx(1:n(1),1:n(2),1:n(3)) , &
            v(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
            vold(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
            mfy(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
-           regary(1:n(1),1:n(2),1:n(3)) , &
            w(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
            wold(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
            mfz(1-nh_u:n(1)+nh_u,1-nh_u:n(2)+nh_u,1-nh_u:n(3)+nh_u) , &
-           regarz(1:n(1),1:n(2),1:n(3)) , &
-           source(1:n(1),1:n(2),1:n(3)) , &
            div(1:n(1),1:n(2),1:n(3)) , &
-           pold(0:n(1)+1,0:n(2)+1,0:n(3)+1) , &
-           ind_IBM(0:n(1)+1,0:n(2)+1,0:n(3)+1), &
-           force_IBM(0:n(1)+1,0:n(2)+1,0:n(3)+1))
+           delta_p(0:n(1)+1,0:n(2)+1,0:n(3)+1))
   allocate(dudtrko(n(1),n(2),n(3)), &
            dvdtrko(n(1),n(2),n(3)), &
            dwdtrko(n(1),n(2),n(3)))
@@ -312,9 +333,7 @@ program flutas
            mu_t(       0:n(1)+1,0:n(2)+1,0:n(3)+1)  , &
            muold(       0:n(1)+1,0:n(2)+1,0:n(3)+1)  , &
            rhoold(      0:n(1)+1,0:n(2)+1,0:n(3)+1)  , &
-           rho_new(      0:n(1)+1,0:n(2)+1,0:n(3)+1)  , &
            rho(      0:n(1)+1,0:n(2)+1,0:n(3)+1)  , &
-           rho_gas(      0:n(1)+1,0:n(2)+1,0:n(3)+1)  , &
            nor(      0:n(1)+1,0:n(2)+1,0:n(3)+1,3), &
            norold(      0:n(1)+1,0:n(2)+1,0:n(3)+1,3), &
            ls(       0:n(1)+1,0:n(2)+1,0:n(3)+1)  , &
@@ -324,12 +343,8 @@ program flutas
            omega(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
            diff(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
            src_ph(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
-           omega_s(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
-           p_sat(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
            ent(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
            lh(0:n(1)+1,0:n(2)+1,0:n(3)+1)          ,&
-           rhoh(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
-           tmp(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
            cond(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
            condold(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
            rhocp(0:n(1)+1,0:n(2)+1,0:n(3)+1)        , &
@@ -340,10 +355,8 @@ program flutas
            ur(0:n(1)+1,0:n(2)+1,0:n(3)+1), &
            vr(0:n(1)+1,0:n(2)+1,0:n(3)+1), &
            wr(0:n(1)+1,0:n(2)+1,0:n(3)+1) ) 
-  allocate(delta(  0:n(1)+1,0:n(2)+1,0:n(3)+1))
 allocate(psi_bound(1:n(1),1:n(2))) 
 allocate(ls_bound(1:n(1),1:n(2))) 
-allocate(c1_bound(1:n(1),1:n(2))) 
   allocate(lambdaxyp(n_z(1),n_z(2)))
   allocate(ap(n_z(3)-IBM_h),bp(n_z(3)-IBM_h),cp(n_z(3)-IBM_h))
   allocate(dzc( 1-nh_d:n(3)+nh_d), &
@@ -480,19 +493,6 @@ allocate(c1_bound(1:n(1),1:n(2)))
   !
   if(use_mod_nse) nse_switch = 1.0
 
-do k=1,n3
-   do j=1,n2
-      do i=1,n1
-         if (k .le. IBM_h) then
-           ind_IBM(i,j,k) = 1.0
-         else
-           ind_IBM(i,j,k) = 0.0
-         endif 
-      end do
-   end do
-end do
-call boundp(cbcpsi_n,n,bcpsi_n,nh_d,nh_v,halo_v,dl,dzc,dzf,ind_IBM)
-
       psi  = 0.0_rp
       ent  = 0.0_rp
       cond = 0.0_rp
@@ -507,14 +507,14 @@ if(.not.restart) then
       !
       ! Initialize DI 
       !
-    call initflow(inivel,n(1),n(2),n(3),dims,nh_d,nh_u,nh_p,rho2,mu2,zc/lz,dzc/lz,dzf/lz,u,v,w,p,pold)
+    call initflow(inivel,n(1),n(2),n(3),dims,nh_d,nh_u,nh_p,rho2,mu2,zc/lz,dzc/lz,dzf/lz,u,v,w,p,delta_p)
     
     !
     !    
       !
 #if defined(_TWO_PHASE)
       call initpsi(inipsi,n,dl,l,nh_v,eps_int,psi,ent,cond,.FALSE.,ent,p,trigger_update,time)
-      call boundp(cbcpre,n,bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,pold)
+      call boundp(cbcpre,n,bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,delta_p)
       call boundp(cbcpre,n,bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,p)
 #if defined(_CONTACT_LINE)
     call boundp(cbcpsi,n,bcpsi,nh_d,nh_v,halo_v,dl,dzc,dzf,psi)
@@ -569,7 +569,7 @@ if(.not.restart) then
     
     !Initialize the enthalpy
     
-    call init_ent(nh_p,h1,h2,h3,h03,n,psi,ind_IBM,ent,dl)
+    call init_ent(nh_p,h1,h2,h3,h03,n,psi,ent,dl)
 
       !
 #if defined(_HEAT_TRANSFER)      
@@ -751,7 +751,7 @@ endif
     call load(action_load,trim(restart_dir)//'flddw.bin',n,dwdtrko(1:n(1),1:n(2),1:n(3)))
     call load(action_load,trim(restart_dir)//'fldp.bin',n,      p(1:n(1),1:n(2),1:n(3)))
     inquire(file=trim(restart_dir)//'flddp.bin', exist=is_data)
-    if(is_data) call load(action_load,trim(restart_dir)//'flddp.bin',n,   pold(1:n(1),1:n(2),1:n(3))) !
+    if(is_data) call load(action_load,trim(restart_dir)//'flddp.bin',n,   delta_p(1:n(1),1:n(2),1:n(3))) !
     call load(action_load,trim(restart_dir)//'fldpsi.bin',n,    psi(1:n(1),1:n(2),1:n(3)))
     call load(action_load,trim(restart_dir)//'flddpsi.bin',n,dpsidtrko(1:n(1),1:n(2),1:n(3)))
     call load(action_load,trim(restart_dir)//'fldent.bin',n,    ent(1:n(1),1:n(2),1:n(3)))
@@ -785,12 +785,12 @@ endif
   !
   ! set boundary conditions on the initial/loaded fields
   call boundp(cbcpre,n,bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,p)  !
-  call boundp(cbcpre,n,bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,pold)
+  call boundp(cbcpre,n,bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,delta_p)
   !
   ! for the first time-step and the restarting we use a 0th order extrapolation 
   ! in time-splitting of the pressure equation
   !
-  if((.NOT.restart_mph_heat).AND.(.NOT.restart_mph_heat)) pold(:,:,:) = 0.0
+  if((.NOT.restart_mph_heat).AND.(.NOT.restart_mph_heat)) delta_p(:,:,:) = 0.0
   !
 
   !
@@ -1347,15 +1347,15 @@ endif
     !
     call set_IBM_vel_to_zero(n,nh_u,u,v,w)
     if (IBM_h.NE.0) call stress_IBM(n(1),n(2),n(3),f_t12,cbcpre,dxi,dyi,dzi,nh_d,dzfi,dzci,&
-    nh_u,uold,vold,wold,ind_IBM,dudtrko,dvdtrko,muold,rhoold,force_IBM,u,v,w,p,pold,f_t12_o,f_t1)
+    nh_u,uold,vold,wold,dudtrko,dvdtrko,muold,rhoold,u,v,w,p,f_t12_o,f_t1)
     !
 #if defined(_TWO_PHASE)
-    call pres_tw_src(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p,pold,rho,u,v,w,1,istep)
+    call pres_tw_src(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p,delta_p,rho,u,v,w,1,istep)
     call add_inflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,f_t12)
     call corr_u_liquid(n,dl,l,nh_p,nh_u,psi,f_t12,src_ph,uold,vold,wold)
     call add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12)
     !call surft_src_FEF(n(1),n(2),n(3),nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,psi,u,v,w,l,dl,dzc,dzf,halo_v,nh_v,n,'nor',ls)
-    call surft_src_IBM(n(1),n(2),n(3),nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,kappa,psi,rho,u,v,w,ind_IBM,l,dl,ls,.TRUE.,0.3_rp)
+    call surft_src_IBM(n(1),n(2),n(3),nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,kappa,psi,rho,u,v,w,l,dl,ls,.TRUE.,0.3_rp)
     call grav_tw_src_ibm(n(1),n(2),n(3),rho,dt,cbcpre,dxi,dyi,dzi,nh_d,dzfi,nh_u,u,v,w)    
 #endif
     !
@@ -1364,7 +1364,7 @@ endif
     !################################################################################
     ! Call the Solver 
     call profiler_start("SOLVER", tag = .true., tag_color = COLOR_GREEN)
-    call calculate_new_pressure(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,dzfi,u,v,w,p,pold,rho   &
+    call calculate_new_pressure(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,dzfi,u,v,w,p,delta_p,rho   &
         ,src_ph,f_t12,dl,dzc,dzf,halo_u,halo_p,f_t12_o,istep, &
                     rhsbp_x,rhsbp_y,rhsbp_z,arrplanp,normfftp,lambdaxyp,ap,bp,cp,l,trigger_update)
     call profiler_stop("SOLVER")
@@ -1608,7 +1608,7 @@ endif
       inquire(file=trim(restart_dir)//'flddp.bin', exist=is_data)
       if(myid.eq.0.and.is_data) call execute_command_line('mv '//trim(restart_dir) & 
                                     //'flddp.bin   '//trim(restart_dir)//'flddp_old.bin')
-      call load(action_load,trim(restart_dir)//'flddp.bin',n,      pold(1:n(1),1:n(2),1:n(3)))
+      call load(action_load,trim(restart_dir)//'flddp.bin',n,      delta_p(1:n(1),1:n(2),1:n(3)))
       !@cuf if ( (mod(istep,isave)).eq. 0 .and. (.not. is_done) .and. (.not.kill) ) istat = cudaMemPrefetchAsync(p, size(p), mydev, 0)
       !
       !

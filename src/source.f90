@@ -134,7 +134,7 @@ module mod_source
     return
   end subroutine surft_src
 
-  subroutine surft_src_IBM(nx,ny,nz,nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,kappa,psi,rho,u,v,w,ind_IBM,l,dl,ls,truncated,limiter)
+  subroutine surft_src_IBM(nx,ny,nz,nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,kappa,psi,rho,u,v,w,l,dl,ls,truncated,limiter)
     !
     !the input velocities are actually rho.u and the output as well
     !
@@ -150,7 +150,7 @@ module mod_source
     real(rp), intent(in   )                                     :: f_t12,limiter
     real(rp), intent(in   )                                     :: dxi,dyi,dzi
     real(rp), intent(in   ), dimension(1-nh_d:)                 :: dzci
-    real(rp), intent(in   ), dimension(0:,0:,0:)                :: kappa,psi,rho,ind_IBM,ls
+    real(rp), intent(in   ), dimension(0:,0:,0:)                :: kappa,psi,rho,ls
     real(rp), intent(inout), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: u,v,w
     logical,  intent(in   )                                     :: truncated
     !
@@ -522,8 +522,8 @@ subroutine grav_tw_src_ibm(nx,ny,nz,rho,f_t12,cbcpre,dxi,dyi,dzi,nh_d,dzfi, &
 
 end subroutine grav_tw_src_ibm
 
-  subroutine stress_IBM(nx,ny,nz,f_t12,cbcpre,dxi,dyi,dzi,nh_d,dzfi,dzci,nh_u,u,v,w,ind_IBM,dudtrko,dvdtrko, &
-                                          mu,rho,force_IBM,un,vn,wn,p,pold,f_t12_o,f_t1)  
+  subroutine stress_IBM(nx,ny,nz,f_t12,cbcpre,dxi,dyi,dzi,nh_d,dzfi,dzci,nh_u,u,v,w,dudtrko,dvdtrko, &
+                                          mu,rho,un,vn,wn,p,f_t12_o,f_t1)  
         !
         use mod_param     , only: lx,ly,lz,gacc_x,gacc_y,gacc_z,rho0,IBM_h
         !
@@ -541,9 +541,8 @@ end subroutine grav_tw_src_ibm
         integer         , intent(in   )                                     :: nh_u
         real(rp)        , intent(in   ), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: u,v,w,mu,rho
         real(rp)        , intent(inout), dimension(1:,1:,1:)                 :: dudtrko,dvdtrko
-        real(rp)        , intent(inout), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: un,vn,wn,force_IBM
-        real(rp)        , intent(in )  , dimension(0:,0:,0:)                :: ind_IBM
-        real(rp)        , intent(in   ), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: p,pold
+        real(rp)        , intent(inout), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: un,vn,wn
+        real(rp)        , intent(in   ), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: p
         real(rp)        , intent(in   )                                     :: f_t12_o,f_t1
         real(rp) :: rhop,rhom
         integer  :: i,j,k,ip,jp,kp,im,jm,km
@@ -556,7 +555,7 @@ end subroutine grav_tw_src_ibm
         f2 =       (f_t12/f_t12_o)
         !
         !$acc kernels
-        force_IBM(:,:,:) = 0.0    
+        !
         k = 1 + IBM_h
         do j=1,ny
           do i=1,nx
@@ -600,8 +599,6 @@ end subroutine grav_tw_src_ibm
               d2vdz2_new = dzfi(k)*((dvdzp+dwdyp)*muzp-(dvdzm_new+dwdym_new)*muzm)
 
               dvdt = (- dvwdz_old - d2vdz2_old + dvwdz_new + d2vdz2_new)    !*rhoy
-
-              force_IBM(i,j,k) = dvdt
 
               vn(i,j,k) = vn(i,j,k)  + f_t1*dvdt
               dvdtrko(i,j,k) = dvdtrko(i,j,k)+ dvdt
