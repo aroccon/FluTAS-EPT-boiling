@@ -253,7 +253,6 @@ program flutas
   real(rp) ::  h1, h2, h3, h03, s1, s2, g1, g2, Gama1, Gama2, cv1, cv2
 
   real(rp) :: aux
-  integer  :: ii,jj,expon
   integer :: n1, n2, n3
   integer :: ng1, ng2, ng3
   !
@@ -1343,7 +1342,7 @@ endif
     call rk(space_scheme_mom,f_t1,f_t2,n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mfx,mfy,mfz,muold,rhoold,dudtrko &
      ,dvdtrko,dwdtrko,norold,psiold,eps_int,u_reg,dl,dli,dzc,dzf,halo_u,nh_p,nh_v,f_t12,src_ph,f_t12_o,lsold,nor,psi)
     
-    !call adjust_bound_vel(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,psi,dl,dzc,dzf,halo_u,f_t12,time)  
+    call adjust_bound_vel(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,psi,dl,dzc,dzf,halo_u,f_t12,time)  
     !
     call set_IBM_vel_to_zero(n,nh_u,u,v,w)
     if (IBM_h.NE.0) call stress_IBM(n(1),n(2),n(3),f_t12,cbcpre,dxi,dyi,dzi,nh_d,dzfi,dzci,&
@@ -1518,7 +1517,7 @@ endif
     endif
     !
 #if defined(_DO_POSTPROC)
-    if((mod(istep,iout0d_ta).eq.0.and.do_tagging).OR.(is_const_out_time.AND.trigger_out_3D)) then
+    if((mod(istep,iout0d_ta).eq.0.and.do_tagging).OR.(is_const_out_time.AND.trigger_out_3D.AND.do_tagging)) then
       call tagging_acdi_ibm(n,dims,datadir_ta,dl,nh_d,nh_v,nh_u,halo_v,dzc,dzf,psi,u,v,w,istep,time,src_ph)
     endif
 #endif

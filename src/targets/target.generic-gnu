@@ -13,8 +13,8 @@ endif
 PRE       := #-fdefault-real-8 -fdefault-double-8
 
 # Take all the compiler flags together
-FFLAGS      := $(OPT) $(DBG) $(PRE)  -I/software/all/mpi/openmpi/5.0.7-gnu-14/lib
-FFLAGSSLOW  := $(DBG) $(PRE)   -I/software/all/mpi/openmpi/5.0.7-gnu-14/lib
+FFLAGS      := $(OPT) $(DBG) $(PRE) 
+FFLAGSSLOW  := $(DBG) $(PRE)  
 DFLAGS      := -D_TIMING -D_EPA2A -D_DECOMP_Z #-D_TWOD
 DFLAGS      += -D_OVERWRITE -D_EVEN # FFLAGS_2DECOMP
 LDFLAGS     :=

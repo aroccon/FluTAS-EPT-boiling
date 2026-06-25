@@ -20,6 +20,7 @@ real(rp)                                        :: nuc_rad,const_out_time
 logical                                         :: in_active,use_mod_nse,use_mod_solver
 logical                                         :: in_receive,in_sent,is_const_out_time
 logical                                         :: do_phasechnage
+logical                                         :: follow_bub
 real(rp)                                        :: in_force,in_len,max_kappa,pc_factor
 real(rp)                                        :: pc_factor1,pc_factor2,pc_factor3
 integer                                         :: comm_rank,k_max_nuc
@@ -65,6 +66,7 @@ subroutine init_boiling(n,dl,trigger_out_3D)
   logical, intent(inout)                          :: trigger_out_3D
   integer                                         :: iunit,i,j,q,idir
   real(rp)                                        :: x,y
+  logical                                         :: exists
   !
   trigger_out_3D = .TRUE.
   if(myid.eq.0) print*, 'Reading file: ', 'boiling.in' , ' ...'
@@ -141,6 +143,24 @@ subroutine init_boiling(n,dl,trigger_out_3D)
       endif
     enddo
   enddo
+  !
+  follow_bub   = .FALSE.
+  exists       = .FALSE.
+  !
+  ! check for input file
+  !
+  IF(myid.eq.0) THEN
+    INQUIRE(file='followbub.in',exist=exists)
+    !
+    IF (exists) THEN
+      OPEN(newunit=iunit,file='followbub.in',form='formatted',status='old',action='read')
+      READ(iunit,*)   follow_bub
+      IF(follow_bub) PRINT*, 'Coordinate system will follow bubble'
+    ENDIF
+    !
+  ENDIF
+  !
+  CALL mpi_bcast(follow_bub,1,MPI_LOGICAL,0,comm_cart,ierr)
   !
   return
 end subroutine init_boiling
@@ -1563,39 +1583,41 @@ subroutine adjust_bound_vel(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,psi,dl,dzc,
     real(rp) :: rhox,rhoy,rhoz,cog,x,y,z,cog_target,p_factor,bubble_vel,weight,tolerance
     integer  :: im,ip,jm,jp,km,kp,i,j,k
     !
-    !    
-    cog_target = nuc_sites(1,3)
-    ! p_factor = max rise vel ~0.15m/s and max. allowed dispacement 0.15mm => 1000.0
-    p_factor = 500.0
-    tolerance = 0.01*1e-3
-    if(cbcvel(1,3,3).NE.'D') then
-      !call flutas_error('ERROR: Wrong BC type for adaptive input velocity!')
-    endif
-    cog = 0.0
-    weight = 0.0
-    do k=1+IBM_h,nz !
-      z = (k+ijk_start(3)-0.5_rp)*dl(3)
-      do j=1,ny
-        y = (j+ijk_start(2)-0.5_rp)*dl(2)
-        do i=1,nx
-          x = (i+ijk_start(1)-0.5_rp)*dl(1)
-          !
-          ip = i+1   
-          jp = j+1   
-          kp = k+1  
-          cog = cog + psi(i,j,k)*z
-          weight = weight + psi(i,j,k)
-          !
+    !
+    IF(follow_bub) THEN
+      cog_target = nuc_sites(1,3)
+      ! p_factor = max rise vel ~0.15m/s and max. allowed dispacement 0.15mm => 1000.0
+      p_factor = 500.0
+      tolerance = 0.01*1e-3
+      if(cbcvel(1,3,3).NE.'D') then
+        !call flutas_error('ERROR: Wrong BC type for adaptive input velocity!')
+      endif
+      cog = 0.0
+      weight = 0.0
+      do k=1+IBM_h,nz !
+        z = (k+ijk_start(3)-0.5_rp)*dl(3)
+        do j=1,ny
+          y = (j+ijk_start(2)-0.5_rp)*dl(2)
+          do i=1,nx
+            x = (i+ijk_start(1)-0.5_rp)*dl(1)
+            !
+            ip = i+1   
+            jp = j+1   
+            kp = k+1  
+            cog = cog + psi(i,j,k)*z
+            weight = weight + psi(i,j,k)
+            !
+          enddo
         enddo
       enddo
-    enddo
-    call mpi_allreduce(MPI_IN_PLACE,cog,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
-    call mpi_allreduce(MPI_IN_PLACE,weight,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
-    cog = cog/weight
-    bubble_vel = -max((cog-cog_target-tolerance),0.d0)*p_factor
-    bcvel(1,3,3) = bubble_vel
-    if(myid.eq.0) print*, "Inflow velocity: ", bubble_vel, time, f_t12
-    !
+      call mpi_allreduce(MPI_IN_PLACE,cog,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
+      call mpi_allreduce(MPI_IN_PLACE,weight,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
+      cog = cog/weight
+      bubble_vel = -max((cog-cog_target-tolerance),0.d0)*p_factor
+      bcvel(1,3,3) = bubble_vel
+      if(myid.eq.0) print*, "Inflow velocity: ", bubble_vel, time, f_t12
+      !
+    ENDIF
     return
   end subroutine adjust_bound_vel
 
