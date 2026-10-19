@@ -166,3 +166,17 @@ vof.o : profiler.o
 vof.o : apps/$(APP)/param.o
 vof.o : sanity.o
 vof.o : types.o
+# missing module dependencies (from the use statements), needed for parallel make -j
+boiling.o : correc.o
+chkdiv.o : apps/$(APP)/param.o
+chkdt.o : boiling.o
+correc.o : apps/$(APP)/param.o
+di_acdi.o : apps/$(APP)/param.o bound.o
+fillps.o : apps/$(APP)/param.o common_mpi.o
+initflow.o : 2decomp/decomp_2d.o
+mom.o : boiling.o bound.o
+rk.o : apps/$(APP)/param.o boiling.o bound.o common_mpi.o
+solver_gpu.o : profiler.o
+solver_vc.o : 2decomp/decomp_2d.o apps/$(APP)/param.o common_mpi.o types.o
+source.o : boiling.o debug.o
+stats.o : boiling.o

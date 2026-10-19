@@ -46,8 +46,9 @@ module mod_sgs
     integer                                                  :: i,j,k,m,loc
     real(rp), parameter                                      :: one_third = 1._rp/3._rp
     real(rp), parameter                                      :: big = huge(1.0_rp)
-    logical , dimension(0:1,3)                               :: is_bound
+    logical , dimension(0:1,3), save                         :: is_bound
     real(rp)                                                 :: ibm_factor
+    integer                                                  :: n1,n2,n3
     !
     select case(trim(sgstype))
     case('none')
@@ -94,14 +95,17 @@ module mod_sgs
       dxi = dli(1)
       dyi = dli(2)
       !
+      ! scalar copies of n: the host array n is not present on the device (default(present))
+      n1 = n(1); n2 = n(2); n3 = n(3)
+      !
       ibm_factor = 1.0
       if(IBM_h.NE.0) ibm_factor = 2.0
       !
       !$acc parallel loop collapse(3) default(present) async(1) &
       !$acc private(dw,tauw,loc,fd,del,tauw_s,dw_min,dw_plus)
-      do k=1+IBM_h,n(3)
-        do j=1,n(2)
-          do i=1,n(1)
+      do k=1+IBM_h,n3
+        do j=1,n2
+          do i=1,n1
             !
             if(sum(is_wall(1:6))==0) then
               ! triperiodic
@@ -109,11 +113,11 @@ module mod_sgs
             else
               ! van Driest damping
               dw(1) = dl(1)*(i-0.5)
-              dw(2) = dl(1)*(n(1)-i+0.5)
+              dw(2) = dl(1)*(n1-i+0.5)
               dw(3) = dl(2)*(j-0.5)
-              dw(4) = dl(2)*(n(2)-j+0.5)
+              dw(4) = dl(2)*(n2-j+0.5)
               dw(5) = dl(3)*(k-IBM_h-0.5)
-              dw(6) = dl(3)*(n(3)-j+0.5)
+              dw(6) = dl(3)*(n3-j+0.5)
               dw = dw*is_wall + big*(1._rp-is_wall)
               loc = minloc(dw,1)
               dw_min = dw(loc)
@@ -125,11 +129,11 @@ module mod_sgs
                 tauw_s   =  0.5_rp*visc(1,j,k)*tauw_s/rho(1,j,k)
                 visci    = rho(1,j,k)/visc(1,j,k)
               else if(loc==2) then
-                tauw(1) = v(n(1),j,k)-v(n(1)+1,j,k)+v(n(1),j-1,k)-v(n(1)+1,j-1,k)
-                tauw(2) = w(n(1),j,k)-w(n(1)+1,j,k)+w(n(1),j,k-1)-w(n(1)+1,j,k-1)
+                tauw(1) = v(n1,j,k)-v(n1+1,j,k)+v(n1,j-1,k)-v(n1+1,j-1,k)
+                tauw(2) = w(n1,j,k)-w(n1+1,j,k)+w(n1,j,k-1)-w(n1+1,j,k-1)
                 tauw_s = sqrt(tauw(1)*tauw(1)+tauw(2)*tauw(2))*dxi
-                tauw_s   =  0.5_rp*visc(n(1),j,k)*tauw_s/rho(n(1),j,k)
-                visci    = rho(n(1),j,k)/visc(n(1),j,k)
+                tauw_s   =  0.5_rp*visc(n1,j,k)*tauw_s/rho(n1,j,k)
+                visci    = rho(n1,j,k)/visc(n1,j,k)
               else if(loc==3) then
                 tauw(1) = u(i,1,k)-u(i,0,k)+u(i-1,1,k)-u(i-1,0,k)
                 tauw(2) = w(i,1,k)-w(i,0,k)+w(i,1,k-1)-w(i,0,k-1)
@@ -137,11 +141,11 @@ module mod_sgs
                 tauw_s   =  0.5_rp*visc(i,1,k)*tauw_s/rho(i,1,k)
                 visci    = rho(i,1,k)/visc(i,1,k)
               else if(loc==4) then
-                tauw(1) = u(i,n(2),k)-u(i,n(2)+1,k)+u(i-1,n(2),k)-u(i-1,n(2)+1,k)
-                tauw(2) = w(i,n(2),k)-w(i,n(2)+1,k)+w(i,n(2),k-1)-w(i,n(2)+1,k-1)
+                tauw(1) = u(i,n2,k)-u(i,n2+1,k)+u(i-1,n2,k)-u(i-1,n2+1,k)
+                tauw(2) = w(i,n2,k)-w(i,n2+1,k)+w(i,n2,k-1)-w(i,n2+1,k-1)
                 tauw_s  = sqrt(tauw(1)*tauw(1)+tauw(2)*tauw(2))*dyi
-                tauw_s   =  0.5_rp*visc(i,n(2),k)*tauw_s/rho(i,n(2),k)
-                visci    = rho(i,n(2),k)/visc(i,n(2),k)
+                tauw_s   =  0.5_rp*visc(i,n2,k)*tauw_s/rho(i,n2,k)
+                visci    = rho(i,n2,k)/visc(i,n2,k)
               else if(loc==5) then
                 tauw(1) = u(i,j,1+IBM_h)-u(i,j,IBM_h)+u(i-1,j,1+IBM_h)-u(i-1,j,IBM_h)
                 tauw(2) = v(i,j,1+IBM_h)-v(i,j,IBM_h)+v(i,j-1,1+IBM_h)-v(i,j-1,IBM_h)
@@ -149,11 +153,11 @@ module mod_sgs
                 tauw_s   =  0.5_rp*visc(i,j,1+IBM_h)*tauw_s/rho(i,j,1+IBM_h)
                 visci    = rho(i,j,1+IBM_h)/visc(i,j,1+IBM_h)
               else if(loc==6) then
-                tauw(1) = u(i,j,n(3))-u(i,j,n(3)+1)+u(i-1,j,n(3))-u(i-1,j,n(3)+1)
-                tauw(2) = v(i,j,n(3))-v(i,j,n(3)+1)+v(i,j-1,n(3))-v(i,j-1,n(3)+1)
-                tauw_s  = sqrt(tauw(1)*tauw(1)+tauw(2)*tauw(2))*dzci(n(3))
-                tauw_s   =  0.5_rp*visc(i,j,n(3))*tauw_s/rho(i,j,n(3))
-                visci    = rho(i,j,n(3))/visc(i,j,n(3))
+                tauw(1) = u(i,j,n3)-u(i,j,n3+1)+u(i-1,j,n3)-u(i-1,j,n3+1)
+                tauw(2) = v(i,j,n3)-v(i,j,n3+1)+v(i,j-1,n3)-v(i,j-1,n3+1)
+                tauw_s  = sqrt(tauw(1)*tauw(1)+tauw(2)*tauw(2))*dzci(n3)
+                tauw_s   =  0.5_rp*visc(i,j,n3)*tauw_s/rho(i,j,n3)
+                visci    = rho(i,j,n3)/visc(i,j,n3)
               end if
               dw_plus  =  dw_min*sqrt(tauw_s)*visci
               fd       =  1._rp-exp(-dw_plus/25._rp)
@@ -189,8 +193,12 @@ module mod_sgs
     logical, dimension(0:1,3)                    :: is_done
     real(rp)                                     :: dzc(0:n(3)+1),factor0,factor1
     integer                                      :: i,j,k
+    integer                                      :: n1,n2,n3
     !
     dzc = 1._rp/dzci
+    !
+    ! scalar copies of n: the host array n is not present on the device (default(present))
+    n1 = n(1); n2 = n(2); n3 = n(3)
     !
     factor0 = 1._rp   ! all uniform grid
     factor1 = 1._rp   ! all uniform grid
@@ -201,49 +209,49 @@ module mod_sgs
     !
     if(is_done(0,1)) then
       !$acc parallel loop collapse(2) default(present) async(1)
-      do k = 0,n(3)+1
-        do j = 0,n(2)+1
+      do k = 0,n3+1
+        do j = 0,n2+1
           p(0,j,k) = 2._rp*p(1,j,k) - p(2,j,k)
         end do
       end do
     end if
     if(is_done(1,1)) then
       !$acc parallel loop collapse(2) default(present) async(1)
-      do k = 0,n(3)+1
-        do j = 0,n(2)+1
-          p(n(1)+1,j,k) = 2._rp*p(n(1),j,k) - p(n(1)-1,j,k)
+      do k = 0,n3+1
+        do j = 0,n2+1
+          p(n1+1,j,k) = 2._rp*p(n1,j,k) - p(n1-1,j,k)
         end do
       end do
     end if
     if(is_done(0,2)) then
       !$acc parallel loop collapse(2) default(present) async(1)
-      do k = 0,n(3)+1
-        do i = 0,n(1)+1
+      do k = 0,n3+1
+        do i = 0,n1+1
           p(i,0,k) = 2._rp*p(i,1,k) - p(i,2,k)
         end do
       end do
     end if
     if(is_done(1,2)) then
       !$acc parallel loop collapse(2) default(present) async(1)
-      do k = 0,n(3)+1
-        do i = 0,n(1)+1
-          p(i,n(2)+1,k) = 2._rp*p(i,n(2),k) - p(i,n(2)-1,k)
+      do k = 0,n3+1
+        do i = 0,n1+1
+          p(i,n2+1,k) = 2._rp*p(i,n2,k) - p(i,n2-1,k)
         end do
       end do
     end if
     if(is_done(0,3)) then
       !$acc parallel loop collapse(2) default(present) async(1)
-      do j = 0,n(2)+1
-        do i = 0,n(1)+1
+      do j = 0,n2+1
+        do i = 0,n1+1
           p(i,j,0+IBM_h) = (1._rp+factor0)*p(i,j,1+IBM_h) - factor0*p(i,j,2+IBM_h)
         end do
       end do
     end if
     if(is_done(1,3)) then
       !$acc parallel loop collapse(2) default(present) async(1)
-      do j = 0,n(2)+1
-        do i = 0,n(1)+1
-          p(i,j,n(3)+1) = (1._rp+factor1)*p(i,j,n(3)) - factor1*p(i,j,n(3)-1)
+      do j = 0,n2+1
+        do i = 0,n1+1
+          p(i,j,n3+1) = (1._rp+factor1)*p(i,j,n3) - factor1*p(i,j,n3-1)
         end do
       end do
     end if
@@ -270,21 +278,24 @@ module mod_sgs
     real(rp) :: s11,s22,s33,s12,s13,s23
     real(rp) :: dxi,dyi
     integer :: i,j,k
+    integer :: n1,n2,n3
     real(rp) :: u_mcm,u_ccm,u_mmc,u_cmc,u_mcc,u_ccc,u_mpc,u_cpc,u_mcp,u_ccp, &
                 v_cmm,v_ccm,v_mmc,v_cmc,v_pmc,v_mcc,v_ccc,v_pcc,v_cmp,v_ccp, &
                 w_cmm,w_mcm,w_ccm,w_pcm,w_cpm,w_cmc,w_mcc,w_ccc,w_pcc,w_cpc
     !
     dxi = dli(1)
     dyi = dli(2)
+    ! scalar copies of n: the host array n is not present on the device (default(present))
+    n1 = n(1); n2 = n(2); n3 = n(3)
     !
     !$acc parallel loop collapse(3) default(present) async(1) &
     !$acc private(u_mcm,u_ccm,u_mmc,u_cmc,u_mcc,u_ccc,u_mpc,u_cpc,u_mcp,u_ccp) &
     !$acc private(v_cmm,v_ccm,v_mmc,v_cmc,v_pmc,v_mcc,v_ccc,v_pcc,v_cmp,v_ccp) &
     !$acc private(w_cmm,w_mcm,w_ccm,w_pcm,w_cpm,w_cmc,w_mcc,w_ccc,w_pcc,w_cpc) &
     !$acc private(s11,s22,s33,s12,s13,s23)
-    do k=1,n(3)
-      do j=1,n(2)
-        do i=1,n(1)
+    do k=1,n3
+      do j=1,n2
+        do i=1,n1
           !
           u_mcm = u(i-1,j  ,k-1)
           u_ccm = u(i  ,j  ,k-1)

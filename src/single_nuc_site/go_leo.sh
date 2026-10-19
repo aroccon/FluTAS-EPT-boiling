@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --account="IscrB_EXCEED"
-#SBATCH --job-name="cudec"
+#SBATCH --account="IscrB_BMO"
+#SBATCH --job-name="boiling"
 #SBATCH --time=00:05:00
 #SBATCH --nodes=1      ##adjust
 #SBATCH --ntasks-per-node=4
@@ -11,14 +11,17 @@
 #SBATCH --error=test.err
 #SBATCH --qos=boost_qos_dbg
 
-#module load nvhpc/25.3
-#module load cuda/12.3
-#module load openmpi/4.1.6--nvhpc--24.3
+# same modules used in ../compile_leo_gpu.sh
 module load profile/candidate
 module load nvhpc/25.3
 module load hpcx-mpi/2.19
-module load fftw/3.3.10--openmpi--4.1.6--gcc--12.2.0-spack0.22
-#export LD_LIBRARY_PATH=/leonardo_scratch/large/userexternal/aroccon0/MHIT36_cuDecomp/cuDecomp/build/lib:$LD_LIBRARY_PATH
-#export LD_LIBRARY_PATH=/leonardo_scratch/large/userexternal/lenzenbe/RE95_256_cuDec/cuDecomp/build/lib:$LD_LIBRARY_PATH
+# no fftw module: it brings in another MPI (mpirun from nvhpc-24.5) that clashes with hpcx-mpi/2.19;
+# libfftw3 is found through the rpath set in targets/target.generic-gpu
+echo "Using mpirun: $(which mpirun)"
 
-mpirun -np 4 ./flutas
+# executable and GPU/NIC binder are in the src folder (one level up)
+SRC_DIR="$(dirname "$(pwd)")"
+echo "Using executable: $SRC_DIR/flutas"
+
+# number of MPI ranks (1 per GPU) must match dims_in(1)*dims_in(2) in dns.in
+mpirun -np 4 --map-by node:PE=8 --rank-by core $SRC_DIR/binder_leo.sh $SRC_DIR/flutas

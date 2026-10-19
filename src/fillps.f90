@@ -131,13 +131,15 @@ module mod_fillps
         enddo
       enddo
     endif    
-    deallocate(outflow_ind)
     !
 #if defined(_OPENACC)
     !$acc end kernels 
 #else
     !$OMP END PARALLEL DO
 #endif
+    !
+    ! outside the kernels region: a deallocate cannot run on the GPU
+    deallocate(outflow_ind)
     !
     return
   end subroutine fillps

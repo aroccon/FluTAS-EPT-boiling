@@ -26,9 +26,13 @@ USE_NVTX = 0
 
 # Required for FFTW
 FFTW_HOME := /leonardo/prod/spack/06/install/0.22/linux-rhel8-icelake/gcc-12.2.0/fftw-3.3.10-f3ms2lmqzjugb43xzrxjkvmvohumyruy
-LDFLAGS   += -L${FFTW_HOME}/lib -lfftw3
+LDFLAGS   += -L${FFTW_HOME}/lib -Wl,-rpath,${FFTW_HOME}/lib -lfftw3
 
-FFLAGS    += -cuda -acc -gpu=cc70  -cudalib=cufft,curand 
+# GPU compute capability (80 = A100 on Leonardo); override with e.g. make GPU_CC=70
+GPU_CC    ?= 80
+# mem:managed: every allocatable array lives in CUDA managed memory, so arrays without
+# an explicit managed attribute (e.g. mu_t, rhocp, psiold in main) are also present on the GPU
+FFLAGS    += -cuda -acc -gpu=cc$(GPU_CC),mem:managed  -cudalib=cufft,curand 
 DFLAGS    += -D_EPHC -D_GPU_MPI
 
 # Required for INIT_MONTECARLO
