@@ -257,6 +257,10 @@ program flutas
   !$call omp_set_num_threads(nthreadsmax)
   call initmpi(.false.,ng,cbcpre,dims_in,dims_xyz,dims,n)
   !
+  ! copy the grid spacing dl (module array, set in read_input) to this rank's GPU,
+  ! now that initmpi has selected it; kernels with default(present) need it there
+  !$acc enter data copyin(dl)
+  !
   n1 = n(1)
   n2 = n(2)
   n3 = n(3)
