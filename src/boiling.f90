@@ -2724,6 +2724,7 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
   use mod_fillps    ,only: fillps
   use mod_solver_cpu,only: solver_cpu
   use mod_correc    ,only: correc
+  use mod_debug     ,only: chk_arr
   ! 
   implicit none
   !
@@ -2768,7 +2769,13 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
             vel_1_z(1-nh_u:nx+nh_u,1-nh_u:ny+nh_u,1-nh_u:nz+nh_u))
   !extract the first velocity
   call mom_to_vel((/nx,ny,nz/),nh_d,nh_v,nh_u,u,v,w,vel_1_x,vel_1_y,vel_1_z,rho)
+  call chk_arr('P1 after mom_to_vel vel_x',vel_1_x)
+  call chk_arr('P1 after mom_to_vel vel_y',vel_1_y)
+  call chk_arr('P1 after mom_to_vel vel_z',vel_1_z)
   call collect_vel((/nx,ny,nz/),dl,l,nh_p,nh_u,rho,vel_1_x,vel_1_y,vel_1_z,p)
+  call chk_arr('P1 after collect_vel vel_x',vel_1_x)
+  call chk_arr('P1 after collect_vel vel_y',vel_1_y)
+  call chk_arr('P1 after collect_vel vel_z',vel_1_z)
   !
   if(use_mod_solver) then
     allocate( vel_2_x(1-nh_u:nx+nh_u,1-nh_u:ny+nh_u,1-nh_u:nz+nh_u) , &
@@ -2783,30 +2790,52 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
   !if(.NOT. trigger_update) then
     call pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p,dp,rho,&
                                                     vel_1_x,vel_1_y,vel_1_z,2,istep)
+  call chk_arr('P1 after pres_tw_src vel_x',vel_1_x)
+  call chk_arr('P1 after pres_tw_src vel_y',vel_1_y)
+  call chk_arr('P1 after pres_tw_src vel_z',vel_1_z)
   !endif
   !Communicate before constructing the RHS
   call bounduvw(cbcvel,(/nx,ny,nz/),bcvel,nh_d,nh_u,halo_u,no_outflow,dl,dzc,dzf, &
                                      vel_1_x,vel_1_y,vel_1_z,rho,rex,rey,rez,0.0_rp,1.0_rp,.TRUE.)
+  call chk_arr('P1 after bounduvw 1 vel_x',vel_1_x)
+  call chk_arr('P1 after bounduvw 1 vel_y',vel_1_y)
+  call chk_arr('P1 after bounduvw 1 vel_z',vel_1_z)
   call apply_bound_vel((/nx,ny,nz/),dl,l,nh_p,nh_u,vel_1_x,vel_1_y,vel_1_z,halo_u,halo_p,p,.FALSE.,rho)
+  call chk_arr('P1 after apply_bound_vel 1 vel_x',vel_1_x)
+  call chk_arr('P1 after apply_bound_vel 1 vel_y',vel_1_y)
+  call chk_arr('P1 after apply_bound_vel 1 vel_z',vel_1_z)
   ! Allocate first temporaray pressure increment array dp1
   allocate( dp1(1-nh_p:nx+nh_p,1-nh_p:ny+nh_p,1-nh_p:nz+nh_p))
   ! Fill dp1 with the RHS information 
   call fillps(nx,ny,nz,nh_d,nh_u,dxi,dyi,dzi,dzfi,dti,rho0,rho1,rho2,rho,rho, &   !2nd rho is here as dummy
                      src_ph,vel_1_x,vel_1_y,vel_1_z,dp1,.FALSE.,rex,rey,rez,nse_switch,out_rk_safety)
+  call chk_arr('P1 after fillps dp1',dp1)
   !
   !-------------- First FFT -------------------
   call updt_rhs_b(nx,ny,nz,(/'c','c','c'/),cbcpre,nh_p,rhsbx,rhsby,rhsbz,dp1)
+  call chk_arr('P1 after updt_rhs_b dp1',dp1)
   call solver_cpu((/nx,ny,nz/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre(:,3),(/'c','c','c'/),dp1)
+  call chk_arr('P1 after solver_cpu dp1',dp1)
   call boundp(cbcpre,(/nx,ny,nz/),bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,dp1)
+  call chk_arr('P1 after boundp dp1',dp1)
   !--------------------------------------------
   ! Correct the velocities
   call correc(nx,ny,nz,nh_d,nh_u,dxi,dyi,dzi,dzci,f_t12,rho0,dp1,vel_1_x,vel_1_y,vel_1_z,rho)
+  call chk_arr('P1 after correc vel_x',vel_1_x)
+  call chk_arr('P1 after correc vel_y',vel_1_y)
+  call chk_arr('P1 after correc vel_z',vel_1_z)
   ! If neccesay turn velocity back into a volume avergaed mixture velocity
   if(use_mod_nse) call make_vol_avg_vel((/nx,ny,nz/),nh_d,nh_v,nh_u,vel_1_x,vel_1_y,vel_1_z,rho)
   !Do IBM treatment and communicate velocities
   call bounduvw(cbcvel,(/nx,ny,nz/),bcvel,nh_d,nh_u,halo_u,is_outflow,dl,dzc,dzf, &
                                        vel_1_x,vel_1_y,vel_1_z,rho,rex,rey,rez,0.0_rp,0.0_rp,.TRUE.)
+  call chk_arr('P1 after bounduvw 2 vel_x',vel_1_x)
+  call chk_arr('P1 after bounduvw 2 vel_y',vel_1_y)
+  call chk_arr('P1 after bounduvw 2 vel_z',vel_1_z)
   call apply_bound_vel((/nx,ny,nz/),dl,l,nh_p,nh_u,vel_1_x,vel_1_y,vel_1_z,halo_u,halo_p,p,.FALSE.,rho)    
+  call chk_arr('P1 after apply_bound_vel 2 vel_x',vel_1_x)
+  call chk_arr('P1 after apply_bound_vel 2 vel_y',vel_1_y)
+  call chk_arr('P1 after apply_bound_vel 2 vel_z',vel_1_z)
 
   !From now on two solvers are possible:
   if(.NOT.use_mod_solver) then 

@@ -12,7 +12,7 @@ module mod_debug
   implicit none
   !
   private
-  public  :: cmpt_mean,chk_fields
+  public  :: cmpt_mean,chk_fields,chk_arr
   !
   contains
   !
@@ -62,6 +62,31 @@ module mod_debug
     return
   end subroutine cmpt_mean
   !
+  !
+  subroutine chk_arr(lbl,a)
+    !
+    ! debug: print the interior checksum (sum of |a|, one halo layer excluded) of one array.
+    ! Active only when the environment variable FLUTAS_NANCHECK is set.
+    !
+    implicit none
+    character(len=*), intent(in)                   :: lbl
+    real(rp)        , intent(in), dimension(:,:,:) :: a
+    logical, save :: is_first = .true., is_on = .false.
+    integer       :: stat
+    real(rp)      :: asum
+    !@cuf integer :: istat
+    !
+    if(is_first) then
+      is_first = .false.
+      call get_environment_variable('FLUTAS_NANCHECK',status=stat)
+      is_on = (stat == 0)
+    endif
+    if(.not.is_on) return
+    !@cuf istat = cudaDeviceSynchronize()
+    asum = sum_interior(a)
+    call mpi_allreduce(MPI_IN_PLACE,asum,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
+    if(myid == 0) write(*,'(a,a40,es14.6)') ' ARRSUM   ',lbl,asum
+  end subroutine chk_arr
   !
   subroutine chk_fields(lbl,u,v,w,p,psi,ent,mut,rho,mu)
     !
