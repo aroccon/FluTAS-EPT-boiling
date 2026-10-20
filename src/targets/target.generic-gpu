@@ -36,7 +36,13 @@ GPU_CC    ?= 80
 # mem:managed: every allocatable array lives in CUDA managed memory, so arrays without
 # an explicit managed attribute (e.g. mu_t, rhocp, psiold in main) are also present on the GPU
 FFLAGS    += -cuda -acc -gpu=cc$(GPU_CC),mem:managed  -cudalib=cufft,curand 
-DFLAGS    += -D_EPHC -D_GPU_MPI
+DFLAGS    += -D_EPHC
+# GPU_MPI=1: MPI works directly on GPU buffers (needs CUDA-aware MPI);
+# GPU_MPI=0: halo/transpose buffers in managed memory (works with any MPI); override with make GPU_MPI=0
+GPU_MPI   ?= 1
+ifeq ($(GPU_MPI),1)
+DFLAGS    += -D_GPU_MPI
+endif
 
 # Required for INIT_MONTECARLO
 #GSL_LIB   += -L~/lib -lgsl -lgslcblas -lm -lstdc++
