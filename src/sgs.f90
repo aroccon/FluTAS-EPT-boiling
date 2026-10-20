@@ -50,6 +50,8 @@ module mod_sgs
     real(rp)                                                 :: ibm_factor
     integer                                                  :: n1,n2,n3
     integer, save                                            :: ncall_dbg = 0
+    integer                                                  :: ibmh_dev
+    real(rp)                                                 :: dl1_dev
     !
     select case(trim(sgstype))
     case('none')
@@ -185,6 +187,16 @@ module mod_sgs
         sum(abs(wk(1:n(1),1:n(2),1:n(3),1))),sum(abs(wk(1:n(1),1:n(2),1:n(3),2))), &
         sum(abs(wk(1:n(1),1:n(2),1:n(3),3))),sum(abs(s0(1:n(1),1:n(2),1:n(3)))), &
         sum(abs(visct(1:n(1),1:n(2),1:n(3)))),maxval(visct(1:n(1),1:n(2),1:n(3)))
+      ! what the GPU sees for module variables of mod_param (host value vs device value)
+      ibmh_dev = -1
+      dl1_dev  = -1._rp
+      !$acc parallel loop reduction(max:ibmh_dev,dl1_dev)
+      do i=1,1
+        ibmh_dev = max(ibmh_dev,IBM_h)
+        dl1_dev  = max(dl1_dev,dl(1))
+      enddo
+      write(*,'(a,i3,a,i3,a,2i4,a,2es12.4)') ' SGSDBG call',ncall_dbg,' rank',myid, &
+        ' IBM_h host/device:',IBM_h,ibmh_dev,' dl(1) host/device:',dl(1),dl1_dev
       write(*,'(a,i3,a,i3,a,6f4.0,a,6l2)') ' SGSDBG call',ncall_dbg,' rank',myid,' is_wall:',is_wall, &
         ' is_bound:',is_bound(0,1),is_bound(1,1),is_bound(0,2),is_bound(1,2),is_bound(0,3),is_bound(1,3)
     endif
