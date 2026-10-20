@@ -171,6 +171,10 @@ module mod_sgs
     case default
       print*, 'ERROR: unknown SGS model'
     end select
+    !
+    ! the kernels above run on async queue 1, while the rest of the code uses the default
+    ! (synchronous) queue: wait here so that visct is complete before it is used
+    !$acc wait(1)
   end subroutine cmpt_sgs
   !
   !

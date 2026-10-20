@@ -151,7 +151,7 @@ endif
 TARGET = flutas
 
 all: $(TARGET).$(APP)
-	ln -s $(TARGET).$(APP) $(TARGET)
+	ln -sf $(TARGET).$(APP) $(TARGET)
 
 main.o : apps/$(APP)/$(MAIN_SRC) $(OBJS)
 	$(FC) $(FFLAGS) $(DFLAGS) $(CPP_FLAGS) -I$(POST_PATH) -c -o main.o $<

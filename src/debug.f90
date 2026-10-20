@@ -6,12 +6,13 @@ module mod_debug
   use mpi
   use mod_common_mpi, only: myid,ierr
   use mod_types
+  use my_is_nan_mod, only: my_is_nan_real64
   !@cuf use cudafor
   !
   implicit none
   !
   private
-  public  :: cmpt_mean
+  public  :: cmpt_mean,chk_fields
   !
   contains
   !
@@ -60,5 +61,55 @@ module mod_debug
     !
     return
   end subroutine cmpt_mean
+  !
+  !
+  subroutine chk_fields(lbl,u,v,w,p,psi,ent,mut)
+    !
+    ! debug: count NaN/Inf in the main fields and print them with label lbl.
+    ! Active only when the environment variable FLUTAS_NANCHECK is set (any value),
+    ! otherwise it returns immediately.
+    !
+    implicit none
+    !
+    character(len=*), intent(in)                 :: lbl
+    real(rp)        , intent(in), dimension(:,:,:) :: u,v,w,p,psi,ent,mut
+    !
+    logical, save :: is_first = .true., is_on = .false.
+    integer       :: nbad(7),stat
+    !@cuf integer :: istat
+    !
+    if(is_first) then
+      is_first = .false.
+      call get_environment_variable('FLUTAS_NANCHECK',status=stat)
+      is_on = (stat == 0)
+    endif
+    if(.not.is_on) return
+    !
+    !@cuf istat = cudaDeviceSynchronize()
+    nbad(1) = count_bad(u)
+    nbad(2) = count_bad(v)
+    nbad(3) = count_bad(w)
+    nbad(4) = count_bad(p)
+    nbad(5) = count_bad(psi)
+    nbad(6) = count_bad(ent)
+    nbad(7) = count_bad(mut)
+    call mpi_allreduce(MPI_IN_PLACE,nbad,7,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
+    if(myid == 0) write(*,'(a,a30,a,7i9)') ' NANCHECK ',lbl,' u,v,w,p,psi,ent,mu_t:',nbad
+    !
+  end subroutine chk_fields
+  !
+  integer function count_bad(a)
+    implicit none
+    real(rp), intent(in), dimension(:,:,:) :: a
+    integer :: i,j,k
+    count_bad = 0
+    do k=1,size(a,3)
+      do j=1,size(a,2)
+        do i=1,size(a,1)
+          if(my_is_nan_real64(a(i,j,k)) .or. abs(a(i,j,k)) > huge(1._rp)) count_bad = count_bad + 1
+        enddo
+      enddo
+    enddo
+  end function count_bad
   !
 end module mod_debug
