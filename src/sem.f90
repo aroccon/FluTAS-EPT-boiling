@@ -61,7 +61,7 @@
     CHARACTER(80) infile,restart_file
 
     !     extent, Volume of the virtual SyEM domain
-    integer,parameter       :: neddy = 150000
+    integer,parameter       :: neddy = 2000   ! must match the eddy count in sem_restart_1.txt (single_nuc_site)
     real(rp) ,ALLOCATABLE   :: bulk_vel_diff(:,:) ! bulk velocity
     real(rp) ,ALLOCATABLE   :: z0(:),u0(:,:) ! bulk velocity
     real(rp) ,ALLOCATABLE   :: sigma_max(:),yplus_cutoff(:)
