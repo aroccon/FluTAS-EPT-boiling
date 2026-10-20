@@ -14,7 +14,10 @@ PRE       := #-r8
 
 # Take all the compiler flags together
 FFLAGS  := $(OPT) $(DBG) $(PRE)
-DFLAGS  := -D_TIMING -D_EPA2A -D_DECOMP_X #-D_TWOD
+# _DECOMP_Z: z is never split across ranks (only x and y, via dims_in in dns.in).
+# Required by the IBM wall: the code uses the local k index for the solid layers (k <= IBM_h),
+# which is only correct if every rank holds the full z column (as in the CPU build).
+DFLAGS  := -D_TIMING -D_EPA2A -D_DECOMP_Z #-D_TWOD
 DFLAGS  += #-D_OVERWRITE -D_EVEN # FFLAGS_2DECOMP
 LDFLAGS :=
 
