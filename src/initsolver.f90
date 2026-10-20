@@ -31,7 +31,10 @@ module mod_initsolver
     character(len=1), intent(in ), dimension(0:1,3)         :: cbc
     real(rp)        , intent(in ), dimension(0:1,3)         :: bc
     character(len=1), intent(in ), dimension(3)             :: c_or_f
-#if defined(_OPENACC)
+    ! the GPU layout of lambdaxy (cuFFT R2C ordering, transposed z pencils) is only for solver_gpu;
+    ! this app calls solver_cpu (FFTW r2r + IBM) also in the GPU build, which needs the CPU layout.
+    ! Define _USE_SOLVER_GPU only if solver_gpu is used.
+#if defined(_OPENACC) && defined(_USE_SOLVER_GPU)
     real(rp)        , intent(out), dimension((n_z(1)*dims_z(1))/dims_z(2),(n_z(2)*dims_z(2))/dims_z(1)) :: lambdaxy
 #else
     real(rp)        , intent(out), dimension(n_z(1),n_z(2)) :: lambdaxy
@@ -48,7 +51,7 @@ module mod_initsolver
     real(rp), dimension(n(2)*dims(2)) :: lambday
     real(rp), dimension(3) :: dl
     integer , dimension(3) :: ng
-#if defined(_OPENACC)
+#if defined(_OPENACC) && defined(_USE_SOLVER_GPU)
     integer , dimension(3) :: nt
     integer , dimension(2) :: coord
 #endif
@@ -65,7 +68,7 @@ module mod_initsolver
     !
     ! add eigenvalues
     !
-#if defined(_OPENACC)
+#if defined(_OPENACC) && defined(_USE_SOLVER_GPU)
     !
     ! use new z pencils (note: here we need to change if it is x-pencil!)
     !
@@ -129,7 +132,7 @@ module mod_initsolver
     character(len=1), intent(in )                 :: c_or_f ! c -> cell-centered; f -> face-centered
     real(rp)        , intent(out), dimension(n)   :: lambda
     !
-#if defined(_OPENACC)
+#if defined(_OPENACC) && defined(_USE_SOLVER_GPU)
     real(rp), dimension(n) :: lambda_aux
 #endif
     integer :: l
@@ -139,7 +142,7 @@ module mod_initsolver
       do l=1,n
         lambda(l)   = -4._rp*sin((1._rp*(l-1))*pi/(1._rp*n))**2
       enddo
-#if defined(_OPENACC)
+#if defined(_OPENACC) && defined(_USE_SOLVER_GPU)
       do l=1,n
         lambda_aux(l  ) = lambda(l)
       enddo
