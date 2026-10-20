@@ -17,6 +17,9 @@ module mod_initmpi
                             n_x,n_y,n_z,ipencil
   use mod_types
   !@cuf use cudafor
+#if defined(_OPENACC)
+  use openacc
+#endif
   !
   implicit none
   !
@@ -61,7 +64,12 @@ module mod_initmpi
          MPI_INFO_NULL, local_comm, ierr)
     call MPI_Comm_rank(local_comm, mydev, ierr)
     ierr = cudaSetDevice(mydev)
-    print *, " MPI rank", mydev, " using GPU", mydev
+    ! OpenACC must use the same GPU as CUDA Fortran (device arrays, cuf kernels, cuFFT):
+    ! cudaSetDevice alone does not set the OpenACC device
+    call acc_set_device_num(mydev,acc_device_nvidia)
+    istat = cudaGetDevice(dev)
+    print *, " MPI rank", mydev, " using GPU", mydev, " (CUDA device", dev, ", OpenACC device", &
+             acc_get_device_num(acc_device_nvidia), ")"
     !
 #endif
     !
