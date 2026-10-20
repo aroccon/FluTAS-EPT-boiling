@@ -4,7 +4,7 @@
 module mod_debug
   !
   use mpi
-  use mod_common_mpi, only: myid,ierr
+  use mod_common_mpi, only: myid,ierr,front,back,comm_cart
   use mod_types
   use my_is_nan_mod, only: my_is_nan_real64
   !@cuf use cudafor
@@ -80,6 +80,7 @@ module mod_debug
     logical, save :: is_first = .true., is_on = .false., reported(9) = .false.
     integer       :: nbad(9),nloc(9),loc(3,9),stat,m
     real(rp)      :: amax(9)
+    integer       :: nhal(5)
     !@cuf integer :: istat
     !
     if(is_first) then
@@ -117,7 +118,55 @@ module mod_debug
     call mpi_allreduce(MPI_IN_PLACE,amax,9,MPI_REAL_RP,MPI_MAX,MPI_COMM_WORLD,ierr)
     if(myid == 0) write(*,'(a,a30,a,9es10.2)') ' NANMAX   ',lbl,' u,v,w,p,psi,ent,mu_t,rho,mu:',amax
     !
+    ! y-halo check: compare the y-halos with the neighbours' first/last interior rows
+    ! (exchanged here on the CPU with plain MPI); counts cells that differ
+    nhal(1) = count_yhalo_bad(u  ); nhal(2) = count_yhalo_bad(v  ); nhal(3) = count_yhalo_bad(w  )
+    nhal(4) = count_yhalo_bad(p  ); nhal(5) = count_yhalo_bad(psi)
+    call mpi_allreduce(MPI_IN_PLACE,nhal,5,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
+    if(myid == 0) write(*,'(a,a30,a,5i8)') ' YHALO    ',lbl,' u,v,w,p,psi:',nhal
+    !
   end subroutine chk_fields
+  !
+  integer function count_yhalo_bad(a)
+    !
+    ! a has one halo layer: 1-based index j=1 is the halo below, j=ny+2 the halo above.
+    ! Send the first interior row (j=2) to front and receive the back neighbour's one: it
+    ! must equal our upper halo (j=ny+2). Same for the lower halo with the last interior row.
+    !
+    implicit none
+    real(rp), intent(in), dimension(:,:,:) :: a
+    real(rp), allocatable, dimension(:,:)  :: sbuf,rbuf
+    integer :: nx2,ny2,nz2,i,k,cnt
+    !
+    nx2 = size(a,1); ny2 = size(a,2); nz2 = size(a,3)
+    allocate(sbuf(nx2,nz2),rbuf(nx2,nz2))
+    cnt = 0
+    !
+    sbuf(:,:) = a(:,2,:)
+    rbuf(:,:) = 0._rp
+    call MPI_SENDRECV(sbuf,nx2*nz2,MPI_REAL_RP,front,11,rbuf,nx2*nz2,MPI_REAL_RP,back ,11,comm_cart,MPI_STATUS_IGNORE,ierr)
+    if(back /= MPI_PROC_NULL) then
+      do k=2,nz2-1
+        do i=2,nx2-1
+          if(abs(a(i,ny2,k)-rbuf(i,k)) > 1.e-12_rp*max(1._rp,abs(rbuf(i,k)))) cnt = cnt + 1
+        enddo
+      enddo
+    endif
+    !
+    sbuf(:,:) = a(:,ny2-1,:)
+    rbuf(:,:) = 0._rp
+    call MPI_SENDRECV(sbuf,nx2*nz2,MPI_REAL_RP,back ,12,rbuf,nx2*nz2,MPI_REAL_RP,front,12,comm_cart,MPI_STATUS_IGNORE,ierr)
+    if(front /= MPI_PROC_NULL) then
+      do k=2,nz2-1
+        do i=2,nx2-1
+          if(abs(a(i,1,k)-rbuf(i,k)) > 1.e-12_rp*max(1._rp,abs(rbuf(i,k)))) cnt = cnt + 1
+        enddo
+      enddo
+    endif
+    !
+    deallocate(sbuf,rbuf)
+    count_yhalo_bad = cnt
+  end function count_yhalo_bad
   !
   real(rp) function max_finite(a)
     ! max |a| over the finite entries of a
