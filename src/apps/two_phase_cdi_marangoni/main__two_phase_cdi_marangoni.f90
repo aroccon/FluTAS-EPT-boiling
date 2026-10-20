@@ -767,6 +767,7 @@ endif
     ls(:,:,:) = 0.d0
 #endif
     if(myid.eq.0) print*, '*** multiphase-heat-transport Checkpoint loaded at time = ', time, 'time step = ', istep, '. ***'
+    call chk_fields('after checkpoint load',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
 
     
   endif
@@ -874,7 +875,9 @@ endif
   ! compute an initial time-step
   !
 #if defined(_TWO_PHASE)
+   call chk_fields('before initial bounduvw',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
    call bounduvw(cbcvel,n,bcvel,nh_d,nh_u,halo_u,is_outflow,dl,dzc,dzf,u,v,w,rho,rex,rey,rez,0.0_rp,0.0_rp,.TRUE.)
+   call chk_fields('after initial bounduvw',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
    call cmpt_umax(n,nh_u,u,v,w,gamma_v,u_reg)
   !call chkdt_tw(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,dtmax,u_reg,eps_int)
   !call update_gamma_v(nh_u,nh_d,dli,dzci,dzfi,dxi,dyi,dzi,n,u,v,w,u_reg,eps_int,dtmax,gamma_v,.FALSE.)
@@ -940,6 +943,7 @@ endif
   !
   ! main loop
   !
+  call chk_fields('before time loop',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
   if(myid.eq.0) print*, '*** Calculation loop starts now ***'
   is_done = .false.
   !
