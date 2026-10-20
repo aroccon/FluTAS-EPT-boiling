@@ -119,7 +119,9 @@ module mod_param
   integer , dimension(3) :: n
   real(rp), dimension(3) :: l
   real(rp), dimension(3) :: dl
-  !@cuf attributes(managed) :: dl
+  ! note: no managed attribute here. A fixed-size (static) managed array is created at program
+  ! start on GPU 0, before each MPI rank selects its GPU: kernels on the other GPUs read zeros.
+  ! As a plain array (like dli) OpenACC copies it to the GPU of each rank.
   real(rp), dimension(3) :: dli
   real(rp) :: dxi,dyi,dzi,dx,dy,dz
   real(rp) :: rho0

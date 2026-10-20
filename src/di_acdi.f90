@@ -113,7 +113,7 @@ subroutine rk_ent_ibm(f_t1,f_t2,n,dli,nh_d,nh_u,nh_v,dzc,dzf,eps_int,u_reg, &
   real(rp), intent(in   ), dimension(0:,0:,0:)                   :: rhocp
   integer , intent(in   ), dimension(3)                          :: halo_u,halo_van
   real(rp), intent(in   ), dimension(1:,1:)                      :: ent_bound_o
-  !@cuf attributes(managed) :: velxc,velyc,velzc,weno2,dl,dzc_van,dzf,ent_test
+  !@cuf attributes(managed) :: velxc,velyc,velzc,weno2,dzc_van,dzf,ent_test   ! dl: plain array (see param.f90)
   real(rp), dimension(n(1),n(2),n(3)) :: dentdtrk
   integer  :: i,j,k
   real(rp), dimension(:,:,:), allocatable :: ent_test,weno2

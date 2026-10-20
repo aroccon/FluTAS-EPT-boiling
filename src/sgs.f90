@@ -18,7 +18,7 @@ module mod_sgs
   subroutine cmpt_sgs(n,dzc,dzf,dzci,dzfi,visc,u,v,w,visct,rho)
     use mod_param     , only: l,dl,dli,cbcvel,IBM_h
     use mod_boiling   , only: sgstype,c_smag,wall
-    use mod_common_mpi, only: MPI_PROC_NULL,left,right,front,back,top,bottom,myid
+    use mod_common_mpi, only: MPI_PROC_NULL,left,right,front,back,top,bottom
     !
     ! compute subgrid viscosity at cell centers
     ! the LES with the dynamic model is ~2 times the cost of the LES with the static one.
@@ -49,9 +49,6 @@ module mod_sgs
     logical , dimension(0:1,3), save                         :: is_bound
     real(rp)                                                 :: ibm_factor
     integer                                                  :: n1,n2,n3
-    integer, save                                            :: ncall_dbg = 0
-    integer                                                  :: ibmh_dev
-    real(rp)                                                 :: dl1_dev
     !
     select case(trim(sgstype))
     case('none')
@@ -178,28 +175,6 @@ module mod_sgs
     ! the kernels above run on async queue 1, while the rest of the code uses the default
     ! (synchronous) queue: wait here so that visct is complete before it is used
     !$acc wait(1)
-    !
-    ! debug (temporary): per-rank checksums of the SGS intermediates, first 2 calls only
-    if(trim(sgstype) == 'smag' .and. ncall_dbg < 2) then
-      ncall_dbg = ncall_dbg + 1
-      write(*,'(a,i3,a,i3,a,6es14.6)') ' SGSDBG call',ncall_dbg,' rank',myid, &
-        ' sum|wk1|,|wk2|,|wk3|,|s0|,|visct|,max visct:', &
-        sum(abs(wk(1:n(1),1:n(2),1:n(3),1))),sum(abs(wk(1:n(1),1:n(2),1:n(3),2))), &
-        sum(abs(wk(1:n(1),1:n(2),1:n(3),3))),sum(abs(s0(1:n(1),1:n(2),1:n(3)))), &
-        sum(abs(visct(1:n(1),1:n(2),1:n(3)))),maxval(visct(1:n(1),1:n(2),1:n(3)))
-      ! what the GPU sees for module variables of mod_param (host value vs device value)
-      ibmh_dev = -1
-      dl1_dev  = -1._rp
-      !$acc parallel loop reduction(max:ibmh_dev,dl1_dev)
-      do i=1,1
-        ibmh_dev = max(ibmh_dev,IBM_h)
-        dl1_dev  = max(dl1_dev,dl(1))
-      enddo
-      write(*,'(a,i3,a,i3,a,2i4,a,2es12.4)') ' SGSDBG call',ncall_dbg,' rank',myid, &
-        ' IBM_h host/device:',IBM_h,ibmh_dev,' dl(1) host/device:',dl(1),dl1_dev
-      write(*,'(a,i3,a,i3,a,6f4.0,a,6l2)') ' SGSDBG call',ncall_dbg,' rank',myid,' is_wall:',is_wall, &
-        ' is_bound:',is_bound(0,1),is_bound(1,1),is_bound(0,2),is_bound(1,2),is_bound(0,3),is_bound(1,3)
-    endif
   end subroutine cmpt_sgs
   !
   !
