@@ -66,7 +66,7 @@ module mod_chkdt
     max_cond = 0.0_rp
     !
 #if defined(_OPENACC)
-    !$acc parallel loop collapse(3) reduction(max:dti)
+    !$acc parallel loop collapse(3) reduction(max:dti,max_visc,max_cond) private(cond,visc)
 #else
     !$OMP PARALLEL DO DEFAULT(none) &
     !$OMP SHARED(n,u,v,w,dxi,dyi,dzi,dzci,dzfi) &

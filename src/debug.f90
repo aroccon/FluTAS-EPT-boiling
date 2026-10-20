@@ -79,6 +79,7 @@ module mod_debug
     character(len=4), parameter :: names(9) = ['u   ','v   ','w   ','p   ','psi ','ent ','mu_t','rho ','mu  ']
     logical, save :: is_first = .true., is_on = .false., reported(9) = .false.
     integer       :: nbad(9),nloc(9),loc(3,9),stat,m
+    real(rp)      :: amax(9)
     !@cuf integer :: istat
     !
     if(is_first) then
@@ -109,7 +110,30 @@ module mod_debug
     call mpi_allreduce(MPI_IN_PLACE,nbad,9,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
     if(myid == 0) write(*,'(a,a30,a,9i8)') ' NANCHECK ',lbl,' u,v,w,p,psi,ent,mu_t,rho,mu:',nbad
     !
+    ! maximum absolute (finite) value of each field, to spot blow-ups before they become NaN
+    amax(1) = max_finite(u  ); amax(2) = max_finite(v  ); amax(3) = max_finite(w  )
+    amax(4) = max_finite(p  ); amax(5) = max_finite(psi); amax(6) = max_finite(ent)
+    amax(7) = max_finite(mut); amax(8) = max_finite(rho); amax(9) = max_finite(mu )
+    call mpi_allreduce(MPI_IN_PLACE,amax,9,MPI_REAL_RP,MPI_MAX,MPI_COMM_WORLD,ierr)
+    if(myid == 0) write(*,'(a,a30,a,9es10.2)') ' NANMAX   ',lbl,' u,v,w,p,psi,ent,mu_t,rho,mu:',amax
+    !
   end subroutine chk_fields
+  !
+  real(rp) function max_finite(a)
+    ! max |a| over the finite entries of a
+    implicit none
+    real(rp), intent(in), dimension(:,:,:) :: a
+    integer :: i,j,k
+    max_finite = 0._rp
+    do k=1,size(a,3)
+      do j=1,size(a,2)
+        do i=1,size(a,1)
+          if(.not.(my_is_nan_real64(a(i,j,k)) .or. abs(a(i,j,k)) >= huge(1._rp))) &
+            max_finite = max(max_finite,abs(a(i,j,k)))
+        enddo
+      enddo
+    enddo
+  end function max_finite
   !
   integer function count_bad(a,loc)
     implicit none
