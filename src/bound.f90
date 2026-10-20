@@ -1930,6 +1930,7 @@ public boundsb_array,boundsb_array_ibm,updthalo
   subroutine outflow(nx,ny,nz,idir,nh_d,nh_u,dx,dy,dz,dzf,u,v,w,rho,mfx,mfy,mfz,nse_switch,reg_switch)
     !
     use mod_common_mpi, only: MPI_PROC_NULL,left,right,front,back,top,bottom,myid
+    use my_is_nan_mod , only: my_is_nan_real64
     use mod_param,      only: rho1,rho2
     !
     implicit none
@@ -1947,6 +1948,7 @@ public boundsb_array,boundsb_array_ibm,updthalo
     real(rp), dimension(1-nh_d:nz+nh_d) :: dzfi
     real(rp) :: dxi,dyi,rhoxp,rhoxm,rhoyp,rhoym,rhozp,rhozm,div
     integer  :: i,j,k,q,qmin,corr
+    integer, save :: nprint_dbg = 0
     !
     qmin = abs(1-nh_u)
     !
@@ -2009,6 +2011,18 @@ public boundsb_array,boundsb_array_ibm,updthalo
                                    (mfy(i,j+q,k)/rhoyp-mfy(i  ,j+q-1,k  )/rhoym)*dyi      + &
                                    (mfx(i,j+q,k)/rhoxp-mfx(i-1,j+q  ,k  )/rhoxm)*dxi      )*nse_switch*reg_switch
               v(i,j+q,k) = v(i,j-1-q,k) + dy*(div-(u(i,j+q,k)-u(i-1,j+q,k))*dxi-(w(i,j+q,k)-w(i,j+q,k-1))*dzfi(k))
+              ! debug (FLUTAS_NANCHECK): print the inputs of the first non-finite outflow value
+              if(nprint_dbg < 3) then
+                if(my_is_nan_real64(v(i,j+q,k)) .or. abs(v(i,j+q,k)) > huge(1._rp)) then
+                  nprint_dbg = nprint_dbg + 1
+                  print*, 'OUTFLOW-Y bad v: rank,i,j,k=',myid,i,j+q,k
+                  print*, '  v(j-1),div,dy,dxi,dzfi(k)  =',v(i,j-1-q,k),div,dy,dxi,dzfi(k)
+                  print*, '  u(i),u(i-1),w(k),w(k-1)    =',u(i,j+q,k),u(i-1,j+q,k),w(i,j+q,k),w(i,j+q,k-1)
+                  print*, '  rhoxm,rhoxp,rhoym,rhoyp,rhozm,rhozp =',rhoxm,rhoxp,rhoym,rhoyp,rhozm,rhozp
+                  print*, '  mfx,mfy,mfz (i,j,k),(-1)  =',mfx(i,j+q,k),mfx(i-1,j+q,k),mfy(i,j+q,k),mfy(i,j+q-1,k), &
+                                                        mfz(i,j+q,k),mfz(i,j+q,k-1)
+                endif
+              endif
             enddo
           enddo
         enddo 
