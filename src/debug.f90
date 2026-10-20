@@ -79,7 +79,7 @@ module mod_debug
     character(len=4), parameter :: names(9) = ['u   ','v   ','w   ','p   ','psi ','ent ','mu_t','rho ','mu  ']
     logical, save :: is_first = .true., is_on = .false., reported(9) = .false.
     integer       :: nbad(9),nloc(9),loc(3,9),stat,m
-    real(rp)      :: amax(9)
+    real(rp)      :: amax(9),asum(9)
     integer       :: nhal(5)
     !@cuf integer :: istat
     !
@@ -117,6 +117,13 @@ module mod_debug
     amax(7) = max_finite(mut); amax(8) = max_finite(rho); amax(9) = max_finite(mu )
     call mpi_allreduce(MPI_IN_PLACE,amax,9,MPI_REAL_RP,MPI_MAX,MPI_COMM_WORLD,ierr)
     if(myid == 0) write(*,'(a,a30,a,9es10.2)') ' NANMAX   ',lbl,' u,v,w,p,psi,ent,mu_t,rho,mu:',amax
+    !
+    ! checksum: sum of |a| over the interior cells (halos excluded), to compare runs
+    asum(1) = sum_interior(u  ); asum(2) = sum_interior(v  ); asum(3) = sum_interior(w  )
+    asum(4) = sum_interior(p  ); asum(5) = sum_interior(psi); asum(6) = sum_interior(ent)
+    asum(7) = sum_interior(mut); asum(8) = sum_interior(rho); asum(9) = sum_interior(mu )
+    call mpi_allreduce(MPI_IN_PLACE,asum,9,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
+    if(myid == 0) write(*,'(a,a30,a,9es14.6)') ' NANSUM   ',lbl,' u,v,w,p,psi,ent,mu_t,rho,mu:',asum
     !
     ! y-halo check: compare the y-halos with the neighbours' first/last interior rows
     ! (exchanged here on the CPU with plain MPI); counts cells that differ
@@ -167,6 +174,22 @@ module mod_debug
     deallocate(sbuf,rbuf)
     count_yhalo_bad = cnt
   end function count_yhalo_bad
+  !
+  real(rp) function sum_interior(a)
+    ! sum of |a| over the interior (one halo layer excluded), finite entries only
+    implicit none
+    real(rp), intent(in), dimension(:,:,:) :: a
+    integer :: i,j,k
+    sum_interior = 0._rp
+    do k=2,size(a,3)-1
+      do j=2,size(a,2)-1
+        do i=2,size(a,1)-1
+          if(.not.(my_is_nan_real64(a(i,j,k)) .or. abs(a(i,j,k)) >= huge(1._rp))) &
+            sum_interior = sum_interior + abs(a(i,j,k))
+        enddo
+      enddo
+    enddo
+  end function sum_interior
   !
   real(rp) function max_finite(a)
     ! max |a| over the finite entries of a
