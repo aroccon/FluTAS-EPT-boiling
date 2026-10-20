@@ -767,7 +767,7 @@ endif
     ls(:,:,:) = 0.d0
 #endif
     if(myid.eq.0) print*, '*** multiphase-heat-transport Checkpoint loaded at time = ', time, 'time step = ', istep, '. ***'
-    call chk_fields('after checkpoint load',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after checkpoint load',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
 
     
   endif
@@ -875,9 +875,9 @@ endif
   ! compute an initial time-step
   !
 #if defined(_TWO_PHASE)
-   call chk_fields('before initial bounduvw',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+   call chk_fields('before initial bounduvw',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
    call bounduvw(cbcvel,n,bcvel,nh_d,nh_u,halo_u,is_outflow,dl,dzc,dzf,u,v,w,rho,rex,rey,rez,0.0_rp,0.0_rp,.TRUE.)
-   call chk_fields('after initial bounduvw',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+   call chk_fields('after initial bounduvw',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
    call cmpt_umax(n,nh_u,u,v,w,gamma_v,u_reg)
   !call chkdt_tw(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,dtmax,u_reg,eps_int)
   !call update_gamma_v(nh_u,nh_d,dli,dzci,dzfi,dxi,dyi,dzi,n,u,v,w,u_reg,eps_int,dtmax,gamma_v,.FALSE.)
@@ -943,7 +943,7 @@ endif
   !
   ! main loop
   !
-  call chk_fields('before time loop',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+  call chk_fields('before time loop',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
   if(myid.eq.0) print*, '*** Calculation loop starts now ***'
   is_done = .false.
   !
@@ -987,22 +987,22 @@ endif
     f_t12_i = 1._rp/f_t12
     f_t12_o = dto
     !
-    call chk_fields('start of step',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('start of step',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     call collect_statistics(n,nh_p,nh_u,time,istep,psi,ent,cond,src_ph,p,u,v,w)
     !
     if(dir_xyz(1).NE.0) call profiler_start("SEM", tag = .true., tag_color = COLOR_RED)
     call synthetic_eddies(dt,n)
-    call chk_fields('after SEM',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after SEM',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     if(dir_xyz(1).NE.0) call profiler_stop("SEM")
     !
     if(sgstype.NE.'none') call profiler_start("LES", tag = .true., tag_color = COLOR_RED)
     call cmpt_sgs(n,dzc,dzf,dzci,dzfi,mu,u,v,w,mu_t,rho)
-    call chk_fields('after SGS',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after SGS',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     if(sgstype.NE.'none') call profiler_stop("LES")
     !
     call collect_vel(n,dl,l,nh_p,nh_u,psi,u,v,w,p)
     call apply_bound_vel(n,dl,l,nh_p,nh_u,u,v,w,halo_u,halo_p,p,.FALSE.,rho) 
-    call chk_fields('after apply_bound_vel',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after apply_bound_vel',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     !
     ! 1. DI advection and properties update --> psi^(n+1)
     if(inipsi.eq.'nuc') then
@@ -1099,7 +1099,7 @@ endif
     !
     !
     call cmpt_avg_out_vel(n,dl,l,nh_p,nh_u,psi,u,v,w)
-    call chk_fields('after nuc/props/avg_out_vel',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after nuc/props/avg_out_vel',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     !
     call profiler_start("DI", tag = .true., tag_color = COLOR_YELLOW)
   
@@ -1127,7 +1127,7 @@ endif
 #else  
    call boundp_IBM(cbcpsi,n,bcpsi,nh_d,nh_v,halo_v,dl,dzc,dzf,psi,IBM_h)
 #endif
-   call chk_fields('after rk_psi_ibm',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+   call chk_fields('after rk_psi_ibm',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
    call outflow_psi(n,dl,nh_v,psi,u,v,w,f_t12,psi_bound_o,ent,.FALSE.,0.d0)
    call boundsb_arrayo(n,nh_v,halo_v,psi,psi_bound_o)
   !
@@ -1218,7 +1218,7 @@ endif
                u,v,w,src_ph,norold,ent,cond,ent,dentdtrko,rhocp,halo_u,dl,nh_p,psiold, &
                lsold,f_t12,nh_van,halo_van,ent_bound_o)
     call profiler_stop("HT")
-    call chk_fields('after HT',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after HT',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     if(do_phasechnage) then
       call profiler_start("PC", tag = .true., tag_color = COLOR_YELLOW)
       !    Now add phase chnage term to phase field and temperature based on intermediate values to obtain values of next timestep
@@ -1277,7 +1277,7 @@ endif
        !call update_property(n,(/h01*rho1,h02*rho2/),psi,lh)
        !call boundp(cbcpsi_n,n,bcpsi_n,nh_d,nh_v,halo_v,dl,dzc,dzf,lh)
        call profiler_stop("PC")
-       call chk_fields('after phase change',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+       call chk_fields('after phase change',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     endif
     call boundp(cbctmp,n,bctmp,nh_d,nh_p,halo_p,dl,dzc,dzf,ent)
     call boundsb_arrayo(n,nh_v,halo_v,ent,ent_bound_o)
@@ -1356,7 +1356,7 @@ endif
 #endif
     !
     call profiler_stop("RK")
-    call chk_fields('after RK momentum',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after RK momentum',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     call update_reg_terms(nh_u,nh_p,nh_d,halo_u,nh_v,dli,n,psi,ls,nor,u_reg,eps_int,dl,dzc,dzf)
     !################################################################################
     ! Call the Solver 
@@ -1365,7 +1365,7 @@ endif
         ,src_ph,f_t12,dl,dzc,dzf,halo_u,halo_p,f_t12_o,istep, &
                     rhsbp_x,rhsbp_y,rhsbp_z,arrplanp,normfftp,lambdaxyp,ap,bp,cp,l,trigger_update)
     call profiler_stop("SOLVER")
-    call chk_fields('after pressure solver',u,v,w,p,psi,ent,mu_t)  ! debug, active if FLUTAS_NANCHECK is set
+    call chk_fields('after pressure solver',u,v,w,p,psi,ent,mu_t,rho,mu)  ! debug, active if FLUTAS_NANCHECK is set
     !
     !################################################################################
     !call collect_vel(n,dl,l,nh_p,nh_u,psi,u,v,w,p)

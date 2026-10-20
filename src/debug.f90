@@ -63,7 +63,7 @@ module mod_debug
   end subroutine cmpt_mean
   !
   !
-  subroutine chk_fields(lbl,u,v,w,p,psi,ent,mut)
+  subroutine chk_fields(lbl,u,v,w,p,psi,ent,mut,rho,mu)
     !
     ! debug: count NaN/Inf in the main fields and print them with label lbl.
     ! The first time a field becomes bad on a rank, that rank also prints the
@@ -74,11 +74,11 @@ module mod_debug
     implicit none
     !
     character(len=*), intent(in)                 :: lbl
-    real(rp)        , intent(in), dimension(:,:,:) :: u,v,w,p,psi,ent,mut
+    real(rp)        , intent(in), dimension(:,:,:) :: u,v,w,p,psi,ent,mut,rho,mu
     !
-    character(len=4), parameter :: names(7) = ['u   ','v   ','w   ','p   ','psi ','ent ','mu_t']
-    logical, save :: is_first = .true., is_on = .false., reported(7) = .false.
-    integer       :: nbad(7),nloc(7),loc(3,7),stat,m
+    character(len=4), parameter :: names(9) = ['u   ','v   ','w   ','p   ','psi ','ent ','mu_t','rho ','mu  ']
+    logical, save :: is_first = .true., is_on = .false., reported(9) = .false.
+    integer       :: nbad(9),nloc(9),loc(3,9),stat,m
     !@cuf integer :: istat
     !
     if(is_first) then
@@ -96,7 +96,9 @@ module mod_debug
     nloc(5) = count_bad(psi,loc(:,5))
     nloc(6) = count_bad(ent,loc(:,6))
     nloc(7) = count_bad(mut,loc(:,7))
-    do m=1,7
+    nloc(8) = count_bad(rho,loc(:,8))
+    nloc(9) = count_bad(mu ,loc(:,9))
+    do m=1,9
       if(nloc(m) > 0 .and. .not.reported(m)) then
         reported(m) = .true.
         write(*,'(a,i4,a,a,a,a,i8,a,3i5,a,3i5)') ' NANCHECK rank',myid,' ',trim(names(m)),' first bad at ',lbl, &
@@ -104,8 +106,8 @@ module mod_debug
       endif
     enddo
     nbad(:) = nloc(:)
-    call mpi_allreduce(MPI_IN_PLACE,nbad,7,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
-    if(myid == 0) write(*,'(a,a30,a,7i9)') ' NANCHECK ',lbl,' u,v,w,p,psi,ent,mu_t:',nbad
+    call mpi_allreduce(MPI_IN_PLACE,nbad,9,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
+    if(myid == 0) write(*,'(a,a30,a,9i8)') ' NANCHECK ',lbl,' u,v,w,p,psi,ent,mu_t,rho,mu:',nbad
     !
   end subroutine chk_fields
   !
