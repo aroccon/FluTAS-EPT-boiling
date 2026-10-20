@@ -119,7 +119,7 @@ module mod_debug
     do k=1,size(a,3)
       do j=1,size(a,2)
         do i=1,size(a,1)
-          if(my_is_nan_real64(a(i,j,k)) .or. abs(a(i,j,k)) > huge(1._rp)) then
+          if(my_is_nan_real64(a(i,j,k)) .or. abs(a(i,j,k)) >= huge(1._rp)) then
             count_bad = count_bad + 1
             if(count_bad == 1) loc(:) = [i,j,k]
           endif

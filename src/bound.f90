@@ -1930,7 +1930,6 @@ public boundsb_array,boundsb_array_ibm,updthalo
   subroutine outflow(nx,ny,nz,idir,nh_d,nh_u,dx,dy,dz,dzf,u,v,w,rho,mfx,mfy,mfz,nse_switch,reg_switch)
     !
     use mod_common_mpi, only: MPI_PROC_NULL,left,right,front,back,top,bottom,myid
-    use my_is_nan_mod , only: my_is_nan_real64
     use mod_param,      only: rho1,rho2
     !
     implicit none
@@ -1948,7 +1947,6 @@ public boundsb_array,boundsb_array_ibm,updthalo
     real(rp), dimension(1-nh_d:nz+nh_d) :: dzfi
     real(rp) :: dxi,dyi,rhoxp,rhoxm,rhoyp,rhoym,rhozp,rhozm,div
     integer  :: i,j,k,q,qmin,corr
-    integer, save :: nprint_dbg = 0
     !
     qmin = abs(1-nh_u)
     !
@@ -2011,18 +2009,6 @@ public boundsb_array,boundsb_array_ibm,updthalo
                                    (mfy(i,j+q,k)/rhoyp-mfy(i  ,j+q-1,k  )/rhoym)*dyi      + &
                                    (mfx(i,j+q,k)/rhoxp-mfx(i-1,j+q  ,k  )/rhoxm)*dxi      )*nse_switch*reg_switch
               v(i,j+q,k) = v(i,j-1-q,k) + dy*(div-(u(i,j+q,k)-u(i-1,j+q,k))*dxi-(w(i,j+q,k)-w(i,j+q,k-1))*dzfi(k))
-              ! debug (FLUTAS_NANCHECK): print the inputs of the first non-finite outflow value
-              if(nprint_dbg < 3) then
-                if(my_is_nan_real64(v(i,j+q,k)) .or. abs(v(i,j+q,k)) > huge(1._rp)) then
-                  nprint_dbg = nprint_dbg + 1
-                  print*, 'OUTFLOW-Y bad v: rank,i,j,k=',myid,i,j+q,k
-                  print*, '  v(j-1),div,dy,dxi,dzfi(k)  =',v(i,j-1-q,k),div,dy,dxi,dzfi(k)
-                  print*, '  u(i),u(i-1),w(k),w(k-1)    =',u(i,j+q,k),u(i-1,j+q,k),w(i,j+q,k),w(i,j+q,k-1)
-                  print*, '  rhoxm,rhoxp,rhoym,rhoyp,rhozm,rhozp =',rhoxm,rhoxp,rhoym,rhoyp,rhozm,rhozp
-                  print*, '  mfx,mfy,mfz (i,j,k),(-1)  =',mfx(i,j+q,k),mfx(i-1,j+q,k),mfy(i,j+q,k),mfy(i,j+q-1,k), &
-                                                        mfz(i,j+q,k),mfz(i,j+q,k-1)
-                endif
-              endif
             enddo
           enddo
         enddo 
@@ -2444,14 +2430,26 @@ public boundsb_array,boundsb_array_ibm,updthalo
                           xrl_buf(lb1,lb2), size( xrl_buf ),MPI_REAL_RP,left ,0, &
                           comm_cart,status,ierr)
         !
-        !$acc kernels present(xrl_buf,xrr_buf)                  
-        do k=1-nh,nz+nh
-          do j=1-nh,ny+nh
-            p(nx+1+q  ,j,k) = xrr_buf(j,k)
-            p(0-q     ,j,k) = xrl_buf(j,k)
+        ! unpack only from existing neighbours: with MPI_PROC_NULL nothing is received
+        ! and the halo must keep the physical boundary value (as in the CPU path below)
+        if(right.ne.MPI_PROC_NULL) then
+          !$acc kernels present(xrr_buf)
+          do k=1-nh,nz+nh
+            do j=1-nh,ny+nh
+              p(nx+1+q  ,j,k) = xrr_buf(j,k)
+            enddo
           enddo
-        enddo
-        !$acc end kernels
+          !$acc end kernels
+        endif
+        if(left.ne.MPI_PROC_NULL) then
+          !$acc kernels present(xrl_buf)
+          do k=1-nh,nz+nh
+            do j=1-nh,ny+nh
+              p(0-q     ,j,k) = xrl_buf(j,k)
+            enddo
+          enddo
+          !$acc end kernels
+        endif
       enddo
 #else
       call MPI_SENDRECV(p(1      ,1-nh,1-nh),1,halo,left ,0, &
@@ -2489,14 +2487,25 @@ public boundsb_array,boundsb_array_ibm,updthalo
                           yrl_buf(lb1,lb2), size( yrl_buf ),MPI_REAL_RP,front,0, &
                           comm_cart,status,ierr)
         !
-        !$acc kernels present(yrr_buf,yrl_buf)
-        do k=1-nh,nz+nh 
-          do i=1-nh,nx+nh
-            p(i,ny+1+q,k) = yrr_buf(i,k)
-            p(i,   0-q,k) = yrl_buf(i,k)
+        ! unpack only from existing neighbours (see x direction)
+        if(back.ne.MPI_PROC_NULL) then
+          !$acc kernels present(yrr_buf)
+          do k=1-nh,nz+nh 
+            do i=1-nh,nx+nh
+              p(i,ny+1+q,k) = yrr_buf(i,k)
+            enddo
           enddo
-        enddo
-        !$acc end kernels
+          !$acc end kernels
+        endif
+        if(front.ne.MPI_PROC_NULL) then
+          !$acc kernels present(yrl_buf)
+          do k=1-nh,nz+nh 
+            do i=1-nh,nx+nh
+              p(i,   0-q,k) = yrl_buf(i,k)
+            enddo
+          enddo
+          !$acc end kernels
+        endif
       enddo
 #else
       call MPI_SENDRECV(p(1-nh,1      ,1-nh),1,halo,front,0, &
@@ -2534,14 +2543,25 @@ public boundsb_array,boundsb_array_ibm,updthalo
                           zrl_buf(lb1,lb2), size( zrl_buf ),MPI_REAL_RP,bottom,0, &
                           comm_cart,status,ierr)
         !
-        !$acc kernels present(zrr_buf,zrl_buf)
-        do j=1-nh,ny+nh 
-          do i=1-nh,nx+nh
-            p(i,j,nz+1+q) = zrr_buf(i,j)
-            p(i,j,   0-q) = zrl_buf(i,j)
+        ! unpack only from existing neighbours (see x direction)
+        if(top.ne.MPI_PROC_NULL) then
+          !$acc kernels present(zrr_buf)
+          do j=1-nh,ny+nh 
+            do i=1-nh,nx+nh
+              p(i,j,nz+1+q) = zrr_buf(i,j)
+            enddo
           enddo
-        enddo
-        !$acc end kernels
+          !$acc end kernels
+        endif
+        if(bottom.ne.MPI_PROC_NULL) then
+          !$acc kernels present(zrl_buf)
+          do j=1-nh,ny+nh 
+            do i=1-nh,nx+nh
+              p(i,j,   0-q) = zrl_buf(i,j)
+            enddo
+          enddo
+          !$acc end kernels
+        endif
       enddo
 #else
      call MPI_SENDRECV(p(1-nh,1-nh   ,1   ),1,halo,bottom,0, &
