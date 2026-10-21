@@ -104,8 +104,9 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
   handles the IBM wall. `solver_gpu` is never called.
 - The transposes are ~1300× slower in the GPU build than on CPU, with the same code and data size.
   Likely cause: the CUDA-aware MPI stack (HPC-X/UCX) handling `MPI_Alltoallw` with derived types on
-  host or managed memory. Fix under test: `px`, `py`, `pz` in `solver_cpu` are now pinned host
-  arrays allocated once (they could otherwise be managed under `-gpu=mem:managed`).
+  host or managed memory. Tried (21 Oct): `px`, `py`, `pz` in `solver_cpu` as pinned host arrays,
+  allocated once. Transposes stayed at ~29 ms and the run went to NaN at step 4, so it was
+  reverted. Next: `nsys` profile of a few steps to see what the MPI calls actually do.
 - The rest is ~4.5× slower than CPU: managed-memory pages move between CPU loops (`bound.f90`, most
   of `di_acdi.f90`) and GPU kernels at every step.
 - This case is far too small for GPUs (82k cells, ~20k per GPU). Measure performance on a
