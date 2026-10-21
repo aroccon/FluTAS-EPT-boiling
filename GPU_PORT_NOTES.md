@@ -62,8 +62,8 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
   - `mem:managed`, so the ~40 allocatable arrays without a managed attribute (`mu_t`,
     `rhocp`, `psiold`, …) are also on the GPU.
   - FFTW rpath.
-  - `GPU_MPI ?= 1` switch (`GPU_MPI=0` keeps MPI buffers in managed memory). The MPI
-    library is CUDA-aware, and both settings give identical results.
+  - `GPU_MPI ?= 1` switch. Note: `GPU_MPI=0` does **not** compile with `_EPA2A`, so only
+    `GPU_MPI=1` is usable. The MPI library (HPC-X 2.19) is CUDA-aware.
 - `initmpi.f90`: `acc_set_device_num` after `cudaSetDevice`, and the startup line prints both
   devices. Not the cause of any bug here, but recommended for MPI + OpenACC.
 
@@ -91,6 +91,28 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
   `call chk_fields('label',u,v,w,p,psi,ent,mu_t,rho,mu)` after the stages of interest in the main
   program, and uncomment `export FLUTAS_NANCHECK=1` in `go_leo.sh` / `go_leo_cpu.sh`.
 
+## Performance (21 Oct, 300 steps from step 1680000, profiler report)
+
+| section | CPU, 4 cores (GNU) | GPU, 4×A100 |
+|---|---|---|
+| total per step | 13 ms | 836 ms (~63× slower) |
+| `SOLVER` (300 steps) | 0.89 s | 237 s |
+| 6 transposes (300 steps) | 0.18 s (~0.03 ms/call) | 228 s (25–65 ms/call) |
+| everything else (300 steps) | 3.1 s | 14 s |
+
+- The GPU build always calls `solver_cpu` (FFTW + host transposes + `gaussel`), because only it
+  handles the IBM wall. `solver_gpu` is never called.
+- The transposes are ~1300× slower in the GPU build than on CPU, with the same code and data size.
+  Likely cause: the CUDA-aware MPI stack (HPC-X/UCX) handling `MPI_Alltoallw` with derived types on
+  host or managed memory. Fix under test: `px`, `py`, `pz` in `solver_cpu` are now pinned host
+  arrays allocated once (they could otherwise be managed under `-gpu=mem:managed`).
+- The rest is ~4.5× slower than CPU: managed-memory pages move between CPU loops (`bound.f90`, most
+  of `di_acdi.f90`) and GPU kernels at every step.
+- This case is far too small for GPUs (82k cells, ~20k per GPU). Measure performance on a
+  realistic grid.
+- Every run overwrites `data/restart_dir` **and** `sem_restart_1.txt` at the end. Keep a backup of
+  the starting state (`checkpoints/single_nuc_site_1680000` on Leonardo).
+
 ## Open items
 
 1. Run the 4-GPU case for longer and check that `dt` grows as on the CPU (6.4e-7 limit).
@@ -101,6 +123,9 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
    Do **not** take its `cmpt_umax` debug prints or its hard-coded `u_reg = 0.1`.
 4. `load.f90` doesn't check whether `MPI_FILE_OPEN` succeeded: a missing checkpoint crashes in
    `MPI_File_get_size` instead of printing an error.
-5. Performance: arrays that are never prefetched (`mu_t`, `rhocp`, …) and per-step managed
-   allocations (`outflow_ind` in `fillps`) may cost time. Check with `nsys`.
+5. Performance: fix the slow transposes first (see above). Then move the remaining CPU loops to
+   the GPU, or add IBM support to `solver_gpu` (offset the tridiagonal solve by `IBM_h`, build with
+   `-D_USE_SOLVER_GPU`, and call it from `calculate_new_pressure`). Also check with `nsys`:
+   arrays that are never prefetched (`mu_t`, `rhocp`, …) and per-step managed allocations
+   (`outflow_ind` in `fillps`).
 6. Making the IBM code decomposition-aware (offset `IBM_h` by `ijk_start(3)`) would allow splitting z.

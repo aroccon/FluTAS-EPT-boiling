@@ -31,10 +31,16 @@ module mod_solver_cpu
     character(len=1), intent(in   ), dimension(3)             :: c_or_f
     real(rp)        , intent(inout), dimension(0:,0:,0:)      :: p
     !
-    real(rp), dimension(n_x(1),n_x(2),n_x(3)) :: px
-    real(rp), dimension(n_y(1),n_y(2),n_y(3)) :: py
-    real(rp), dimension(n_z(1),n_z(2),n_z(3)) :: pz
+    ! work arrays in pinned host memory, allocated once: with -gpu=mem:managed they could
+    ! otherwise end up in managed memory, and the CUDA-aware MPI then stages every piece of
+    ! the (host) transposes through the GPU, which made each transpose 30-60 ms instead of <0.1 ms
+    real(rp), allocatable, dimension(:,:,:), save :: px,py,pz
+    !@cuf attributes(pinned) :: px,py,pz
     integer :: q
+    !
+    if(.not.allocated(px)) then
+      allocate(px(n_x(1),n_x(2),n_x(3)),py(n_y(1),n_y(2),n_y(3)),pz(n_z(1),n_z(2),n_z(3)))
+    endif
     !
 #if defined(_DECOMP_X)
     !$OMP WORKSHARE
