@@ -167,7 +167,7 @@ module decomp_2d
   END TYPE DECOMP_INFO
 
   ! main (default) decomposition information for global size nx*ny*nz
-  TYPE(DECOMP_INFO), save :: decomp_main
+  TYPE(DECOMP_INFO), save, target :: decomp_main   ! target: the transposes point at it instead of copying it
   TYPE(DECOMP_INFO), save :: decomp_ph,decomp_sp
 
   ! staring/ending index and size of data held by current processor

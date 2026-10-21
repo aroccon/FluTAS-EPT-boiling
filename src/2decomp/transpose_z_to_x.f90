@@ -19,10 +19,12 @@
     real(mytype), dimension(:,:,:), intent(IN) :: src
     real(mytype), dimension(:,:,:), intent(OUT) :: dst
     real(mytype), dimension(:,:,:), intent(INOUT) :: pxc
-    TYPE(DECOMP_INFO), intent(IN), optional :: opt_decomp
+    TYPE(DECOMP_INFO), intent(IN), optional, target :: opt_decomp
     attributes( managed ) :: src, dst
     attributes( device ) :: pxc
-    TYPE(DECOMP_INFO) :: decomp
+    ! pointer, not a copy: copying DECOMP_INFO copies all its allocatable components, which
+    ! with -gpu=mem:managed is one synchronous cudaMemcpy each (~25-60 ms per transpose)
+    TYPE(DECOMP_INFO), pointer :: decomp
 
     integer :: s1,s2,s3,d1,d2,d3
     integer :: ierror, istat, m, i1, i2, pos
@@ -30,9 +32,9 @@
     integer :: i,j,k,idx,istart,iend,decomp_x2distm
     integer ::           kstart,kend,decomp_z2distm
     if (present(opt_decomp)) then
-       decomp = opt_decomp
+       decomp => opt_decomp
     else
-       decomp = decomp_main
+       decomp => decomp_main
     end if
 
     s1 = SIZE(src,1)
@@ -168,17 +170,19 @@
 
     real(mytype), dimension(:,:,:), intent(IN) :: src
     real(mytype), dimension(:,:,:), intent(OUT) :: dst
-    TYPE(DECOMP_INFO), intent(IN), optional :: opt_decomp
+    TYPE(DECOMP_INFO), intent(IN), optional, target :: opt_decomp
     attributes( managed ) :: src, dst
-    TYPE(DECOMP_INFO) :: decomp
+    ! pointer, not a copy: copying DECOMP_INFO copies all its allocatable components, which
+    ! with -gpu=mem:managed is one synchronous cudaMemcpy each (~25-60 ms per transpose)
+    TYPE(DECOMP_INFO), pointer :: decomp
 
     integer :: s1,s2,s3,d1,d2,d3
     integer :: ierror, istat, m, i1, i2, pos
     integer :: iter, dest, sorc, pow2
     if (present(opt_decomp)) then
-       decomp = opt_decomp
+       decomp => opt_decomp
     else
-       decomp = decomp_main
+       decomp => decomp_main
     end if
 
     s1 = SIZE(src,1)
@@ -274,16 +278,18 @@
     ! memory each copy is a synchronous cudaMemcpy, which made the transposes ~1000x slower)
     real(mytype), dimension(:,:,:), contiguous, intent(IN) :: src
     real(mytype), dimension(:,:,:), contiguous, intent(OUT) :: dst
-    TYPE(DECOMP_INFO), intent(IN), optional :: opt_decomp
+    TYPE(DECOMP_INFO), intent(IN), optional, target :: opt_decomp
 
-    TYPE(DECOMP_INFO) :: decomp
+    ! pointer, not a copy: copying DECOMP_INFO copies all its allocatable components, which
+    ! with -gpu=mem:managed is one synchronous cudaMemcpy each (~25-60 ms per transpose)
+    TYPE(DECOMP_INFO), pointer :: decomp
 
     integer :: ierror
 
     if (present(opt_decomp)) then
-       decomp = opt_decomp
+       decomp => opt_decomp
     else
-       decomp = decomp_main
+       decomp => decomp_main
     end if
 
 #if !defined(_MPI3)
