@@ -321,8 +321,10 @@
 
     implicit none
     
-    real(mytype), dimension(:,:,:), intent(IN) :: src
-    real(mytype), dimension(:,:,:), intent(OUT) :: dst
+    ! contiguous: avoids compiler copy-in/copy-out of src/dst at every call (with managed
+    ! memory each copy is a synchronous cudaMemcpy, which made the transposes ~1000x slower)
+    real(mytype), dimension(:,:,:), contiguous, intent(IN) :: src
+    real(mytype), dimension(:,:,:), contiguous, intent(OUT) :: dst
     TYPE(DECOMP_INFO), intent(IN), optional :: opt_decomp
 
     TYPE(DECOMP_INFO) :: decomp
