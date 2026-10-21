@@ -52,10 +52,16 @@ module mod_solver_cpu
     pz(:,:,:) = p(1:n(1),1:n(2),1:n(3))
     !$OMP END WORKSHARE
     call profiler_start("zc_to_x", tag = .true., tag_color = COLOR_PURPLE)
+#if defined(_OPENACC)
+    ! GPU build: go through y. The direct z->x transpose uses MPI_Alltoallw with derived
+    ! datatypes, which the CUDA-aware MPI handles very slowly on managed memory (~37 ms per call
+    ! vs ~4 ms for the two Alltoallv-based transposes). Same data redistribution, same result.
+    call transpose_z_to_y(pz,py)
+    call transpose_y_to_x(py,px)
+#else
     call transpose_z_to_x(pz,px)
+#endif
     call profiler_stop("zc_to_x")
-    !call transpose_z_to_y(pz,py)
-    !call transpose_y_to_x(py,px)
 #endif
     call fft(arrplan(1,1),px) ! fwd transform in x
     !
@@ -103,10 +109,14 @@ module mod_solver_cpu
 !#elif _DECOMP_Z
 #else
     call profiler_start("xc_to_z", tag = .true., tag_color = COLOR_PURPLE)
+#if defined(_OPENACC)
+    ! GPU build: go through y (see the forward transform above)
+    call transpose_x_to_y(px,py)
+    call transpose_y_to_z(py,pz)
+#else
     call transpose_x_to_z(px,pz)
+#endif
     call profiler_stop("xc_to_z")
-    !call transpose_x_to_y(px,py)
-    !call transpose_y_to_z(py,pz)
     !$OMP WORKSHARE
     p(1:n(1),1:n(2),1:n(3)) = pz(:,:,:)*normfft
     !$OMP END WORKSHARE

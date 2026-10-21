@@ -107,6 +107,15 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
   host or managed memory. Tried (21 Oct): `px`, `py`, `pz` in `solver_cpu` as pinned host arrays,
   allocated once. Transposes stayed at ~29 ms and the run went to NaN at step 4, so it was
   reverted. Next: `nsys` profile of a few steps to see what the MPI calls actually do.
+- **Fix 1 (21 Oct):** every 2decomp transpose did `decomp = decomp_main`, a copy of a derived
+  type with allocatable components. Under `mem:managed` each component copy is a synchronous
+  `cudaMemcpy` (seen with `nsys --cudabacktrace`: `transpose_*_real` → `pgf90_man_copyover`).
+  Now `decomp` is a pointer (`decomp_main` and `opt_decomp` are `target`). STEP for 300 steps:
+  250 s → 98 s. x↔y transposes 26 → 0.8 s, y↔z 29 → 3.2 s; z↔x still 34 s.
+- **Fix 2 (21 Oct, under test):** in the GPU build, `solver_cpu` does z↔x via y (two `Alltoallv`
+  transposes) instead of the direct `MPI_Alltoallw` with derived types, which the CUDA-aware MPI
+  handles very slowly on managed memory. The `contiguous` attribute added to the host transposes
+  earlier had no measurable effect.
 - The rest is ~4.5× slower than CPU: managed-memory pages move between CPU loops (`bound.f90`, most
   of `di_acdi.f90`) and GPU kernels at every step.
 - This case is far too small for GPUs (82k cells, ~20k per GPU). Measure performance on a
