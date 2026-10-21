@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account="IscrB_BMO"
 #SBATCH --job-name="boiling"
-#SBATCH --time=00:05:00
+#SBATCH --time=00:30:00
 #SBATCH --nodes=1      ##adjust
 #SBATCH --ntasks-per-node=4
 #SBATCH --gres=gpu:4
@@ -25,7 +25,7 @@ echo "Using executable: $SRC_DIR/flutas"
 
 # debug: print NaN/Inf counts of the main fields after each stage of the time step
 # (see chk_fields in debug.f90); comment out for production runs
-export FLUTAS_NANCHECK=1
+#export FLUTAS_NANCHECK=1
 
 # number of MPI ranks (1 per GPU) must match dims_in(1)*dims_in(2) in dns.in
 mpirun -np 4 --map-by node:PE=8 --rank-by core $SRC_DIR/binder_leo.sh $SRC_DIR/flutas

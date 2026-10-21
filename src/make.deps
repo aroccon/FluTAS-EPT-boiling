@@ -181,4 +181,3 @@ solver_vc.o : 2decomp/decomp_2d.o apps/$(APP)/param.o common_mpi.o types.o
 source.o : boiling.o debug.o
 stats.o : boiling.o
 debug.o : isnan.o
-boiling.o : debug.o

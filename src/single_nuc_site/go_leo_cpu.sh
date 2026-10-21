@@ -19,7 +19,7 @@ module load openmpi/4.1.6--gcc--12.2.0-cuda-12.2
 export LD_LIBRARY_PATH=/leonardo/prod/spack/06/install/0.22/linux-rhel8-icelake/gcc-12.2.0/fftw-3.3.10-f3ms2lmqzjugb43xzrxjkvmvohumyruy/lib:$LD_LIBRARY_PATH
 
 # debug: print NaN/Inf counts of the main fields after each stage of the time step
-export FLUTAS_NANCHECK=1
+#export FLUTAS_NANCHECK=1
 
 SRC_DIR="$(dirname "$(pwd)")"
 echo "Using executable: $SRC_DIR/flutas"
