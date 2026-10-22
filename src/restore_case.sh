@@ -16,6 +16,9 @@ fi
 if [ ! -d "$BACKUP" ]; then
   echo "backup not found: $BACKUP"; exit 1
 fi
+if [ ! -f "$CASE/dns.in" ] || [ ! -f "$CASE/go_leo.sh" ]; then
+  echo "$CASE is not a complete case folder (dns.in or go_leo.sh missing): nothing changed"; exit 1
+fi
 
 rm -rf "$CASE/data/restart_dir"
 mkdir -p "$CASE/data"

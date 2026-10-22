@@ -2799,6 +2799,7 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
   !
   !-------------- First FFT -------------------
   call updt_rhs_b(nx,ny,nz,(/'c','c','c'/),cbcpre,nh_p,rhsbx,rhsby,rhsbz,dp1)
+  call chk_arr('rhs of pressure solve dp1',dp1)   ! debug, active if FLUTAS_NANCHECK is set
 #if defined(_USE_SOLVER_GPU)
   call solver_gpu((/nx,ny,nz/),(/ng(1)/nx,ng(2)/ny,1/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre,(/'c','c','c'/),dp1)
 #else
@@ -2851,11 +2852,13 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
     deallocate(u_grad_rho)
     !-------------- Second FFT ------------------
     call updt_rhs_b(nx,ny,nz,(/'c','c','c'/),cbcpre,nh_p,rhsbx,rhsby,rhsbz,dp2)
+    call chk_arr('rhs of pressure solve dp2',dp2)   ! debug, active if FLUTAS_NANCHECK is set
 #if defined(_USE_SOLVER_GPU)
     call solver_gpu((/nx,ny,nz/),(/ng(1)/nx,ng(2)/ny,1/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre,(/'c','c','c'/),dp2)
 #else
     call solver_cpu((/nx,ny,nz/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre(:,3),(/'c','c','c'/),dp2)
 #endif
+    call chk_arr('after pressure solve dp2',dp2)   ! debug, active if FLUTAS_NANCHECK is set
     call boundp(cbcpre,(/nx,ny,nz/),bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,dp2)
     !--------------------------------------------
     ! calculate the limiter based on dp1 and dp2
@@ -2882,11 +2885,13 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
                     src_ph,vel_2_x,vel_2_y,vel_2_z,dp3,.FALSE.,rex,rey,rez,nse_switch,out_rk_safety)
     !-------------- Third FFT -------------------
     call updt_rhs_b(nx,ny,nz,(/'c','c','c'/),cbcpre,nh_p,rhsbx,rhsby,rhsbz,dp3)
+    call chk_arr('rhs of pressure solve dp3',dp3)   ! debug, active if FLUTAS_NANCHECK is set
 #if defined(_USE_SOLVER_GPU)
     call solver_gpu((/nx,ny,nz/),(/ng(1)/nx,ng(2)/ny,1/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre,(/'c','c','c'/),dp3)
 #else
     call solver_cpu((/nx,ny,nz/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre(:,3),(/'c','c','c'/),dp3)
 #endif
+    call chk_arr('after pressure solve dp3',dp3)   ! debug, active if FLUTAS_NANCHECK is set
     call boundp(cbcpre,(/nx,ny,nz/),bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,dp3)
     !--------------------------------------------
     ! Correct the velocities
