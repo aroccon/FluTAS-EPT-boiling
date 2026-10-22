@@ -127,14 +127,24 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
 - Every run overwrites `data/restart_dir` **and** `sem_restart_1.txt` at the end. Keep a backup of
   the starting state (`checkpoints/single_nuc_site_1680000` on Leonardo).
 
-## GPU pressure solver (22 Oct, under test)
+## GPU pressure solver (22 Oct)
 
-- Build with `USE_SOLVER_GPU=1 ./compile_leo_gpu.sh` (sets `-D_USE_SOLVER_GPU`; default 0 = `solver_cpu`).
+- Switch: `USE_SOLVER_GPU` (default 1 = `solver_gpu`; `USE_SOLVER_GPU=0 ./compile_leo_gpu.sh` = `solver_cpu`).
 - `fft.f90`: `ND` (cell-centred) pressure BC on GPU as DCT-IV (FFTW `REDFT11`), built on the existing
   DCT-II/III: forward = scale by 2cos(pi(2n+1)/(4N)), DCT-II, recurrence Y_0 = W_0/2, Y_k = W_k - Y_(k-1);
   backward = transposed chain. Checked against direct transforms (errors ~N·eps).
 - `solver_gpu.f90`: IBM offset in the tridiagonal solve (`k = 1+IBM_h ... nz`), as in `solver_cpu`.
-- 1 GPU: identical to `solver_cpu` (all 9 solves of 3 steps, 7 digits). 4 GPUs: to be checked.
+- Validation: identical to `solver_cpu` on 1 GPU and on 4 GPUs (right-hand side and solution of all
+  3 solves per step, 3 steps, 7 digits).
+- Also fixed: `solver_gpu` called `cudaMemAdvise` on the device arrays `pxc`, `pyc_t`, `py_t`. That
+  fails with 'invalid argument' and left the error behind, so UCC's `MPI_Allreduce` on GPU buffers
+  then reported `cudaGetLastError() failed` and aborted the reduction (4 GPUs only).
+- Performance, 300 steps, 4×A100: STEP 40 s → **20 s** (0.067 s/step); SOLVER 26.5 s → 6.7 s;
+  transposes 17.3 s → 0.54 s. Overall 0.84 → 0.067 s/step since 21 Oct (12×). The rest of the
+  step (~13 s: SEM 3.3, RK 3.1, PC 2.3, HT 1.7, DI 1.2) is now the larger part.
+- 2000 steps from step 1680000, 4 GPUs, `solver_gpu` vs `solver_cpu`: `Max T_wall` and `dt` agree to
+  ~7 digits at the end (differences grow slowly from ~1e-9, normal rounding growth). STEP 133 s vs
+  268 s. **`USE_SOLVER_GPU=1` is now the default** (target and `compile_leo_gpu.sh`).
 - `restore_case.sh <case> <nstep>` restores the clean starting state before comparisons.
 
 ## Open items

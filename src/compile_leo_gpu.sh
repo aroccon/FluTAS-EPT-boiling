@@ -1,7 +1,7 @@
 # number of parallel compile jobs
 NJOBS=8
-# pressure solver on the GPU (1) or on the CPU (0, validated default)
-USE_SOLVER_GPU=${USE_SOLVER_GPU:-0}
+# pressure solver on the GPU (1, default) or on the CPU (0)
+USE_SOLVER_GPU=${USE_SOLVER_GPU:-1}
 
 module load profile/candidate
 module load nvhpc/25.3

@@ -37,9 +37,10 @@ GPU_CC    ?= 80
 # an explicit managed attribute (e.g. mu_t, rhocp, psiold in main) are also present on the GPU
 FFLAGS    += -cuda -acc -gpu=cc$(GPU_CC),mem:managed  -cudalib=cufft,curand 
 DFLAGS    += -D_EPHC
-# USE_SOLVER_GPU=1: pressure solved on the GPU (solver_gpu: cuFFT, device transposes, IBM offset,
-# PP/NN/DD/ND in x,y). Default 0: solver_cpu (FFTW + host transposes), validated against the CPU build.
-USE_SOLVER_GPU ?= 0
+# USE_SOLVER_GPU=1 (default): pressure solved on the GPU (solver_gpu: cuFFT, device transposes,
+# IBM offset, PP/NN/DD/ND in x,y). Validated against solver_cpu (2000 steps, 4 GPUs), 2x faster overall.
+# USE_SOLVER_GPU=0: solver_cpu (FFTW + host transposes), e.g. for other pressure BCs in x,y (DN).
+USE_SOLVER_GPU ?= 1
 ifeq ($(USE_SOLVER_GPU),1)
 DFLAGS    += -D_USE_SOLVER_GPU
 endif
