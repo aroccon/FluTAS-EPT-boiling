@@ -127,6 +127,16 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
 - Every run overwrites `data/restart_dir` **and** `sem_restart_1.txt` at the end. Keep a backup of
   the starting state (`checkpoints/single_nuc_site_1680000` on Leonardo).
 
+## GPU pressure solver (22 Oct, under test)
+
+- Build with `USE_SOLVER_GPU=1 ./compile_leo_gpu.sh` (sets `-D_USE_SOLVER_GPU`; default 0 = `solver_cpu`).
+- `fft.f90`: `ND` (cell-centred) pressure BC on GPU as DCT-IV (FFTW `REDFT11`), built on the existing
+  DCT-II/III: forward = scale by 2cos(pi(2n+1)/(4N)), DCT-II, recurrence Y_0 = W_0/2, Y_k = W_k - Y_(k-1);
+  backward = transposed chain. Checked against direct transforms (errors ~N·eps).
+- `solver_gpu.f90`: IBM offset in the tridiagonal solve (`k = 1+IBM_h ... nz`), as in `solver_cpu`.
+- 1 GPU: identical to `solver_cpu` (all 9 solves of 3 steps, 7 digits). 4 GPUs: to be checked.
+- `restore_case.sh <case> <nstep>` restores the clean starting state before comparisons.
+
 ## Open items
 
 1. Run the 4-GPU case for longer and check that `dt` grows as on the CPU (6.4e-7 limit).
@@ -143,3 +153,6 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
    arrays that are never prefetched (`mu_t`, `rhocp`, …) and per-step managed allocations
    (`outflow_ind` in `fillps`).
 6. Making the IBM code decomposition-aware (offset `IBM_h` by `ijk_start(3)`) would allow splitting z.
+7. **1-GPU runs blow up** (dims_in = 1 1): pressure checksum 3.8e14 in step 2, NaN by step 4, with both
+   solvers (identical numbers), while 4 GPUs run fine. Something breaks when one rank is both
+   inflow (SEM) and outflow, or exchanges with itself (`Receiver: 0 senders: 0`). Not investigated yet.

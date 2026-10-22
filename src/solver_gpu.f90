@@ -84,9 +84,10 @@ module mod_solver_gpu
       !@cuf istat = cudaMemAdvise( py, size(py), cudaMemAdviseSetPreferredLocation, mydev )
       !@cuf istat = cudaMemAdvise( pz, size(pz), cudaMemAdviseSetPreferredLocation, mydev )
       !@cuf istat = cudaMemAdvise( pw, size(pw), cudaMemAdviseSetPreferredLocation, mydev )
-      !@cuf istat = cudaMemAdvise( pxc, size(pxc), cudaMemAdviseSetPreferredLocation, mydev )
-      !@cuf istat = cudaMemAdvise( pyc_t, size(pyc_t), cudaMemAdviseSetPreferredLocation, mydev )
-      !@cuf istat = cudaMemAdvise( py_t, size(py_t), cudaMemAdviseSetPreferredLocation, mydev )
+      ! no cudaMemAdvise on pxc, pyc_t, py_t: they are device (not managed) arrays, the call fails with
+      ! 'invalid argument' and leaves that error behind, which then made UCC's MPI_Allreduce on GPU
+      ! buffers report 'cudaGetLastError() failed' and abort the reduction
+      !@cuf istat = cudaGetLastError()   ! clear any error left by the hints above
       !!! !@cuf istat = cudaMemPrefetchAsync( px, size(px), mydev, 0)
       !!! !@cuf istat = cudaMemPrefetchAsync( py, size(py), mydev, 0)
       !!! !@cuf istat = cudaMemPrefetchAsync( pz, size(pz), mydev, 0)
