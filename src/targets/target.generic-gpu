@@ -37,6 +37,12 @@ GPU_CC    ?= 80
 # an explicit managed attribute (e.g. mu_t, rhocp, psiold in main) are also present on the GPU
 FFLAGS    += -cuda -acc -gpu=cc$(GPU_CC),mem:managed  -cudalib=cufft,curand 
 DFLAGS    += -D_EPHC
+# USE_SOLVER_GPU=1: pressure solved on the GPU (solver_gpu: cuFFT, device transposes, IBM offset,
+# PP/NN/DD/ND in x,y). Default 0: solver_cpu (FFTW + host transposes), validated against the CPU build.
+USE_SOLVER_GPU ?= 0
+ifeq ($(USE_SOLVER_GPU),1)
+DFLAGS    += -D_USE_SOLVER_GPU
+endif
 # GPU_MPI=1: MPI works directly on GPU buffers (needs CUDA-aware MPI);
 # GPU_MPI=0 does NOT compile with _EPA2A (transpose_z_to_xc reads the 2decomp buffers in a cuf kernel)
 GPU_MPI   ?= 1

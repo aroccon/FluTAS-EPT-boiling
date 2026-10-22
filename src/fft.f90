@@ -789,6 +789,84 @@ module mod_fft
     return
   end subroutine posp_dctiib
   !
+  subroutine dctiv_scale(nn, n2, n3, arr)
+    !
+    ! arr(n) = 2 cos(pi(2n+1)/(4N)) arr(n), n = 0,...,N-1 (along the first index, N = nn)
+    !
+    implicit none
+    integer , intent(in   )                   :: nn, n2, n3
+    real(rp), intent(inout), dimension(:,:,:) :: arr
+    !@cuf attributes(device) :: arr
+    integer :: i, j, k
+    !
+    !$acc parallel loop collapse(3) present(arr)
+    do k=1,n3
+      do j=1,n2
+        do i=1,nn
+          arr(i,j,k) = 2._rp*cos(pi*(2*(i-1)+1)/(4._rp*nn))*arr(i,j,k)
+        enddo
+      enddo
+    enddo
+    !$acc end parallel loop
+    !
+    return
+  end subroutine dctiv_scale
+  !
+  subroutine dctiv_recur_fwd(nn, n2, n3, arr)
+    !
+    ! Y_0 = W_0/2 , Y_k = W_k - Y_(k-1), k = 1,...,N-1 (along the first index, N = nn)
+    !
+    implicit none
+    integer , intent(in   )                   :: nn, n2, n3
+    real(rp), intent(inout), dimension(:,:,:) :: arr
+    !@cuf attributes(device) :: arr
+    integer  :: i, j, k
+    real(rp) :: y
+    !
+    !$acc parallel loop collapse(2) present(arr) private(y)
+    do k=1,n3
+      do j=1,n2
+        y = 0.5_rp*arr(1,j,k)
+        arr(1,j,k) = y
+        !$acc loop seq
+        do i=2,nn
+          y = arr(i,j,k) - y
+          arr(i,j,k) = y
+        enddo
+      enddo
+    enddo
+    !$acc end parallel loop
+    !
+    return
+  end subroutine dctiv_recur_fwd
+  !
+  subroutine dctiv_recur_bwd(nn, n2, n3, arr)
+    !
+    ! v_(N-1) = x_(N-1) , v_k = x_k - v_(k+1), k = N-2,...,0 (along the first index, N = nn)
+    !
+    implicit none
+    integer , intent(in   )                   :: nn, n2, n3
+    real(rp), intent(inout), dimension(:,:,:) :: arr
+    !@cuf attributes(device) :: arr
+    integer  :: i, j, k
+    real(rp) :: v
+    !
+    !$acc parallel loop collapse(2) present(arr) private(v)
+    do k=1,n3
+      do j=1,n2
+        v = arr(nn,j,k)
+        !$acc loop seq
+        do i=nn-1,1,-1
+          v = arr(i,j,k) - v
+          arr(i,j,k) = v
+        enddo
+      enddo
+    enddo
+    !$acc end parallel loop
+    !
+    return
+  end subroutine dctiv_recur_bwd
+  !
   subroutine signal_processing(pre_or_pos,f_or_b,cbc,c_or_f,n,idir,arr)
     !
     ! wrapper subroutine for signal processing to compute FFT-based transforms
@@ -876,8 +954,41 @@ module mod_fft
         case default
         end select
       end if
+    case('ND')
+      !
+      ! DCT-IV (FFTW REDFT11, self-inverse) built on the DCT-II (REDFT10) / DCT-III (REDFT01) above:
+      !   forward : u_n = 2cos(pi(2n+1)/(4N)) x_n ; W = REDFT10(u) ; Y_0 = W_0/2 , Y_k = W_k - Y_(k-1)
+      !   backward: transpose of the forward chain:
+      !             v'_(N-1) = x_(N-1) , v'_k = x_k - v'_(k+1) ; Z = REDFT01(v') ; y_n = 2cos(pi(2n+1)/(4N)) Z_n
+      !
+      if(c_or_f.eq.'c') then
+        select case (f_or_b)
+        case('F')
+          if(pre_or_pos.eq.0) then
+            call dctiv_scale(n1, n2, n3, arr)                          ! n1 = N
+            call prep_dctiif(n1, n2, n3, idir, arr,.false.,.false.)
+          elseif (pre_or_pos.eq.1) then
+            call posp_dctiif(n1, n2, n3, idir, arr,.false.,.false.)
+            call dctiv_recur_fwd(n1-2, n2, n3, arr)                    ! n1 = N+2
+          endif
+        case('B')
+          if(pre_or_pos.eq.0) then
+            call dctiv_recur_bwd(n1-2, n2, n3, arr)                    ! n1 = N+2
+            call prep_dctiib(n1, n2, n3, idir, arr,.false.,.false.)
+          elseif(pre_or_pos.eq.1) then
+            call posp_dctiib(n1, n2, n3, idir, arr,.false.,.false.)
+            call dctiv_scale(n1, n2, n3, arr)                          ! n1 = N
+          endif
+        case default
+        end select
+      else
+        if(myid.eq.0) print*, "In GPU, ND pressure boundary conditions are supported only cell-centered"
+        call MPI_FINALIZE(ierr)
+        call exit
+      endif
+      !
     case default
-      if(myid.eq.0) print*, "In GPU, only PP, DD, and NN boundary conditions for pressure are supported"
+      if(myid.eq.0) print*, "In GPU, only PP, DD, NN and ND boundary conditions for pressure are supported"
       if(myid.eq.0) print*, "Check dns.in"
       call MPI_FINALIZE(ierr)
       call exit

@@ -3,6 +3,7 @@ module mod_solver_gpu
   use iso_c_binding , only: C_PTR
   use decomp_2d
   use mod_types
+  use mod_param     , only: IBM_h
 #if defined(_OPENACC)
   use cudafor
   use mod_fftw_param
@@ -41,7 +42,8 @@ module mod_solver_gpu
 #else
     real(rp)        , intent(in   ), dimension(n(1),n(2)) :: lambdaxy
 #endif
-    real(rp)        , intent(in   ), dimension(n(3))      :: a,b,c
+    ! IBM: the tridiagonal system is solved only above the solid, k = 1+IBM_h,...,n(3)
+    real(rp)        , intent(in   ), dimension(n(3)-IBM_h) :: a,b,c
     character(len=1), intent(in   ), dimension(0:1,3)     :: bc
     character(len=1), intent(in   ), dimension(3)         :: c_or_f
     real(rp)        , intent(inout), dimension(0:,0:,0:)  :: p
@@ -64,6 +66,10 @@ module mod_solver_gpu
     ng1 = n1*dims1 
     ng2 = n2*dims2
     ng3 = n3 
+    if(IBM_h.ne.0 .and. bc(0,3)//bc(1,3).eq.'PP') then
+      print*, 'ERROR: solver_gpu does not support an IBM wall with periodic z'
+      error stop
+    endif
     !
     if( .not. allocated(px) ) allocate(px(ng1,ng2/dims1,ng3/dims2))
     if( .not. allocated(py) ) allocate(py(ng1/dims1,ng2,ng3/dims2))
@@ -170,7 +176,7 @@ module mod_solver_gpu
       if(bc(0,3)//bc(1,3).eq.'PP') then
         call gaussel_periodic_gpu(ng1/dims2,ng2/dims1,n3-q,a,b,c,lambdaxy,pw,px,py,pxc,pyc_t)
       else
-        call gaussel_gpu(         ng1/dims2,ng2/dims1,n3-q,a,b,c,lambdaxy,pw,px,py)
+        call gaussel_gpu(         ng1/dims2,ng2/dims1,n3-q-IBM_h,a,b,c,lambdaxy,pw,px,py,IBM_h)
       endif
       !@cuf istat = cudaDeviceSynchronize()
       !
@@ -350,9 +356,9 @@ module mod_solver_gpu
 #endif
       else
 #if defined(_OPENACC)
-        call gaussel_gpu(         ng1/dims2,ng2/dims1,n3-q,a,b,c,lambdaxy,pw,px,py)
+        call gaussel_gpu(         ng1/dims2,ng2/dims1,n3-q-IBM_h,a,b,c,lambdaxy,pw,px,py,IBM_h)
 #else
-        call gaussel(         n1,n2,n3-q,a,b,c,lambdaxy,pz)
+        call gaussel(         n1,n2,n3-q-IBM_h,a,b,c,lambdaxy,pz(:,:,1+IBM_h:))
 #endif
       endif
       !@cuf istat = cudaDeviceSynchronize()
@@ -472,11 +478,12 @@ module mod_solver_gpu
   end subroutine solver_gpu
   !
 #if defined(_OPENACC)
-  subroutine gaussel_gpu(nx,ny,n,a,b,c,lambdaxy,p,bb,d)
+  subroutine gaussel_gpu(nx,ny,n,a,b,c,lambdaxy,p,bb,d,koff)
     !
     implicit none
     !
     integer , intent(in   )                     :: nx,ny,n
+    integer , intent(in   )                     :: koff ! p is solved at k+koff (IBM: koff = IBM_h)
     real(rp), intent(in   ), dimension(:)       :: a,b,c
     real(rp), intent(in   ), dimension(nx,ny)   :: lambdaxy
     real(rp), intent(inout), dimension(:,:,:)   :: p
@@ -501,26 +508,26 @@ module mod_solver_gpu
         !$acc end loop
         z = 1._rp/bb(i,j,1)
         d(i,j,1) = c(1)*z
-        p(i,j,1) = p(i,j,1)*z
+        p(i,j,1+koff) = p(i,j,1+koff)*z
         !$acc loop seq
         do k=2,n-1
           z = 1._rp/(bb(i,j,k)-a(k)*d(i,j,k-1))
           d(i,j,k) = c(k)*z
-          p(i,j,k) = (p(i,j,k)-a(k)*p(i,j,k-1))*z
+          p(i,j,k+koff) = (p(i,j,k+koff)-a(k)*p(i,j,k-1+koff))*z
         enddo
         !$acc end loop
         z = bb(i,j,n)-a(n)*d(i,j,n-1)
         if(z.ne.0._rp) then
-          p(i,j,n) = (p(i,j,n)-a(n)*p(i,j,n-1))/z
+          p(i,j,n+koff) = (p(i,j,n+koff)-a(n)*p(i,j,n-1+koff))/z
         else
-          p(i,j,n) = 0._rp
+          p(i,j,n+koff) = 0._rp
         endif
         !
         ! backward substitution
         !
         !$acc loop seq
         do k=n-1,1,-1
-          p(i,j,k) = p(i,j,k) - d(i,j,k)*p(i,j,k+1)
+          p(i,j,k+koff) = p(i,j,k+koff) - d(i,j,k)*p(i,j,k+1+koff)
         enddo
         !$acc end loop
         !

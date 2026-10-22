@@ -2719,10 +2719,12 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
      ,src_ph,f_t12,dl,dzc,dzf,halo_u,halo_p,f_t12_o,istep,rhsbx,rhsby,rhsbz, &
      arrplanp,normfftp,lambdaxyp,ap,bp,cp,l,trigger_update )  
   ! solves the pressure with two different methods, only CPU version available right now
-  use mod_param     ,only: rho1,rho2,IBM_h,no_outflow,bcvel,cbcvel,is_outflow,cbcpre,bcpre,rho0
+  use mod_param     ,only: rho1,rho2,IBM_h,no_outflow,bcvel,cbcvel,is_outflow,cbcpre,bcpre,rho0,ng
   use mod_bound     ,only: bounduvw,updt_rhs_b,boundp,bounduvw_mom,boundp_IBM
   use mod_fillps    ,only: fillps
   use mod_solver_cpu,only: solver_cpu
+  use mod_solver_gpu,only: solver_gpu
+  use mod_debug     ,only: chk_arr
   use mod_correc    ,only: correc
   ! 
   implicit none
@@ -2754,6 +2756,7 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
   real(rp) :: dtidxi,dtidyi,rxm,rxp,rym,ryp,rzm,rzp !!!
   !@cuf attributes(managed) :: dzc,dp2,dzci,dzf,dzfi,dp1,rho,vel_1_x,vel_1_y,vel_1_z,p
   !@cuf attributes(managed) :: vel_2_x,vel_2_y,vel_2_z,dp3,rhsbx,rhsby,rhsbz,u,v,w
+  !@cuf attributes(managed) :: lambdaxyp,ap,bp,cp   ! managed in main; required by solver_gpu
 
   nse_switch = 0.0
   if(use_mod_nse)  nse_switch = 1.0
@@ -2796,7 +2799,12 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
   !
   !-------------- First FFT -------------------
   call updt_rhs_b(nx,ny,nz,(/'c','c','c'/),cbcpre,nh_p,rhsbx,rhsby,rhsbz,dp1)
+#if defined(_USE_SOLVER_GPU)
+  call solver_gpu((/nx,ny,nz/),(/ng(1)/nx,ng(2)/ny,1/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre,(/'c','c','c'/),dp1)
+#else
   call solver_cpu((/nx,ny,nz/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre(:,3),(/'c','c','c'/),dp1)
+#endif
+  call chk_arr('after pressure solve dp1',dp1)   ! debug, active if FLUTAS_NANCHECK is set
   call boundp(cbcpre,(/nx,ny,nz/),bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,dp1)
   !--------------------------------------------
   ! Correct the velocities
@@ -2843,7 +2851,11 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
     deallocate(u_grad_rho)
     !-------------- Second FFT ------------------
     call updt_rhs_b(nx,ny,nz,(/'c','c','c'/),cbcpre,nh_p,rhsbx,rhsby,rhsbz,dp2)
+#if defined(_USE_SOLVER_GPU)
+    call solver_gpu((/nx,ny,nz/),(/ng(1)/nx,ng(2)/ny,1/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre,(/'c','c','c'/),dp2)
+#else
     call solver_cpu((/nx,ny,nz/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre(:,3),(/'c','c','c'/),dp2)
+#endif
     call boundp(cbcpre,(/nx,ny,nz/),bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,dp2)
     !--------------------------------------------
     ! calculate the limiter based on dp1 and dp2
@@ -2870,7 +2882,11 @@ subroutine calculate_new_pressure(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,nh_p,nh_v,dzci,
                     src_ph,vel_2_x,vel_2_y,vel_2_z,dp3,.FALSE.,rex,rey,rez,nse_switch,out_rk_safety)
     !-------------- Third FFT -------------------
     call updt_rhs_b(nx,ny,nz,(/'c','c','c'/),cbcpre,nh_p,rhsbx,rhsby,rhsbz,dp3)
+#if defined(_USE_SOLVER_GPU)
+    call solver_gpu((/nx,ny,nz/),(/ng(1)/nx,ng(2)/ny,1/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre,(/'c','c','c'/),dp3)
+#else
     call solver_cpu((/nx,ny,nz/),arrplanp,normfftp,lambdaxyp,ap,bp,cp,cbcpre(:,3),(/'c','c','c'/),dp3)
+#endif
     call boundp(cbcpre,(/nx,ny,nz/),bcpre,nh_d,nh_p,halo_p,dl,dzc,dzf,dp3)
     !--------------------------------------------
     ! Correct the velocities
