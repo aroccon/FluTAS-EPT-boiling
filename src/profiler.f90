@@ -18,7 +18,7 @@ module profiler
   implicit none
   save
   !
-  integer, parameter :: max_clocks = 24
+  integer, parameter :: max_clocks = 48
   integer, parameter :: labels_length_max = 16
   real(KIND=real64), parameter :: not_running = -1.0_real64
   !

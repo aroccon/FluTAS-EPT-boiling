@@ -413,9 +413,13 @@
     !
     !  Update eddies
     If(dir_xyz(max_fam).NE.0) then   !  -> if dir_xyz(fam) is zero = no SEM use!
+      call profiler_start("SEM:advect")
       CALL advect_recycle_eddies(neddy,dt)
+      call profiler_stop("SEM:advect")
       !  Calculate BC field
+      call profiler_start("SEM:iso_dir")
       Call SEM_iso_dir(n)
+      call profiler_stop("SEM:iso_dir")
       ! Collect bulk velocities
       !
       call mpi_allreduce(MPI_IN_PLACE,bulk_vel_diff(1,fam) ,1,MPI_REAL_RP,MPI_SUM,MPI_COMM_WORLD,ierr)
@@ -428,7 +432,9 @@
       bulk_vel_diff(2,fam)=u0(2,fam) - (bulk_vel_diff(2,fam)/in_area)
       bulk_vel_diff(3,fam)=u0(3,fam) - (bulk_vel_diff(3,fam)/in_area)
       ! Correct the inflow BC
+      call profiler_start("SEM:bulk_vel")
       CALL SEM_bulk_vel(n)
+      call profiler_stop("SEM:bulk_vel")
     endif
     RETURN
   END SUBROUTINE synthetic_eddies

@@ -1284,6 +1284,7 @@ endif
     !
     !
     call profiler_start("RK", tag = .true., tag_color = COLOR_RED)
+    call profiler_start("RK:mf_loops")
     !
     !Compute the momentum of the volume-averaged mixture velocity 
     !
@@ -1315,12 +1316,19 @@ endif
      enddo
     enddo
     !
+    call profiler_stop("RK:mf_loops")
+    call profiler_start("RK:bnd_mom")
     call bounduvw_mom(cbcvel,n,bcvel,nh_d,nh_u,halo_u,is_outflow,dl,dzc,dzf,mfx,mfy,mfz,rhoold,rex,rey,rez,0.0_rp,1.0_rp,.TRUE.)
+    call profiler_stop("RK:bnd_mom")
+    call profiler_start("RK:appl_bnd")
     call apply_bound_vel(n,dl,l,nh_p,nh_u,mfx,mfy,mfz,halo_u,halo_p,p,.TRUE.,rhoold)
+    call profiler_stop("RK:appl_bnd")
     !
     !For LES: adjust viscosity:
     if(sgstype.NE.'none') then
+      call profiler_start("RK:mu_t")
       call add_a_to_b(n,nh_p,mu_t,mu)
+      call profiler_stop("RK:mu_t")
       call boundp(cbcpsi_n,n,bcpsi_n,nh_d,nh_v,halo_v,dl,dzc,dzf,mu)
     endif
     !input of the prediction is velocities but the output is product of rho.u
@@ -1328,23 +1336,39 @@ endif
     vold(:,:,:) = v(:,:,:)
     wold(:,:,:) = w(:,:,:)
     !old density and viscoity are being used for diffusion and advective terms
+    call profiler_start("RK:rk")
     call rk(space_scheme_mom,f_t1,f_t2,n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,u,v,w,mfx,mfy,mfz,muold,rhoold,dudtrko &
      ,dvdtrko,dwdtrko,norold,psiold,eps_int,u_reg,dl,dli,dzc,dzf,halo_u,nh_p,nh_v,f_t12,src_ph,f_t12_o,lsold,nor,psi)
+    call profiler_stop("RK:rk")
     
     !call adjust_bound_vel(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,dzfi,psi,dl,dzc,dzf,halo_u,f_t12,time)  
     !
+    call profiler_start("RK:ibm_zero")
     call set_IBM_vel_to_zero(n,nh_u,u,v,w)
+    call profiler_stop("RK:ibm_zero")
     if (IBM_h.NE.0) call stress_IBM(n(1),n(2),n(3),f_t12,cbcpre,dxi,dyi,dzi,nh_d,dzfi,dzci,&
     nh_u,uold,vold,wold,ind_IBM,dudtrko,dvdtrko,muold,rhoold,force_IBM,u,v,w,p,pold,f_t12_o,f_t1)
     !
 #if defined(_TWO_PHASE)
+    call profiler_start("RK:pres_src")
     call pres_tw_src(n(1),n(2),n(3),dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p,pold,rho,u,v,w,1,istep)
+    call profiler_stop("RK:pres_src")
+    call profiler_start("RK:in_force")
     call add_inflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,f_t12)
+    call profiler_stop("RK:in_force")
+    call profiler_start("RK:corr_liq")
     call corr_u_liquid(n,dl,l,nh_p,nh_u,psi,f_t12,src_ph,uold,vold,wold)
+    call profiler_stop("RK:corr_liq")
+    call profiler_start("RK:out_force")
     call add_outflow_force(n,dl,l,nh_p,nh_u,psi,rho,u,v,w,uold,vold,wold,f_t12)
+    call profiler_stop("RK:out_force")
     !call surft_src_FEF(n(1),n(2),n(3),nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,psi,u,v,w,l,dl,dzc,dzf,halo_v,nh_v,n,'nor',ls)
+    call profiler_start("RK:surft")
     call surft_src_IBM(n(1),n(2),n(3),nh_d,nh_u,f_t12,dxi,dyi,dzi,dzci,kappa,psi,rho,u,v,w,ind_IBM,l,dl,ls,.TRUE.,0.3_rp)
+    call profiler_stop("RK:surft")
+    call profiler_start("RK:grav")
     call grav_tw_src_ibm(n(1),n(2),n(3),rho,dt,cbcpre,dxi,dyi,dzi,nh_d,dzfi,nh_u,u,v,w)    
+    call profiler_stop("RK:grav")
 #endif
     !
     call profiler_stop("RK")
