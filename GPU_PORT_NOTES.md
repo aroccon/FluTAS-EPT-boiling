@@ -147,6 +147,29 @@ step. Before these fixes the GPU run blew up to NaN within 5 time steps.
   268 s. **`USE_SOLVER_GPU=1` is now the default** (target and `compile_leo_gpu.sh`).
 - `restore_case.sh <case> <nstep>` restores the clean starting state before comparisons.
 
+## Porting CPU routines to the GPU (23 Oct)
+
+Profiling (`nsys` with page-fault tracing) showed that inside a step the CPU is busy all the time
+and the GPU is mostly idle: many CPU loops touch managed arrays, so data moves back and forth
+(~32 MB each way per step per rank). Porting single routines gains little (the faults move to the
+next CPU routine), so routines are ported in batches, each validated over 2000 steps against the
+previous version (`Max T_wall`, `dt`: 13–14 digits early, ~9–11 digits after 2000 steps).
+
+| batch | routines | STEP (2000 steps) |
+|---|---|---|
+| start | (`solver_gpu`) | 133.3 s |
+| SEM | `SEM_iso_dir` eddy loop (one thread per inlet point) | 133.5 s |
+| 1 | `make_vol_avg_vel`, `mom_to_vel`, `set_IBM_vel_to_zero`, `add_a_to_b`, `cmpt_u_grad_rho`, `update_property_IBM`, `mfx/mfy/mfz` loops in main | 129.4 s |
+| 2 | `pres_tw_src`, `copy_fields`, `psi_to_ls`, `cmpt_umax` (max reduction), `cmpt_norm`, `SEM_apply` | **106.8 s** (53 ms/step) |
+
+Rules used: `!$acc parallel loop collapse(3) default(present)` on managed arrays; inside kernels only
+local scalars for `n(:)`, `IBM_h`, `rho1-rho2`, `dl`, `dli` (module arrays like `dli` are static, not
+on the GPU). Profiler sub-regions `RK:*` and `SEM:*` added (profiler limit raised to 48 labels).
+Remaining per step: SOLVER 11 ms, SEM 9.4 ms, RK 8.9 ms, HT 7.3 ms, PC 5.6 ms, DI 5.2 ms.
+Comparison with the CPU build (GNU, 4 MPI ranks on 4 cores of one node, same case): 13 ms/step.
+The 4-GPU run (53 ms/step) is still ~4× slower on this tiny grid (~20k cells per GPU); a full CPU
+node (32 cores) would be faster still. GPU gains have to be measured on a production-size grid.
+
 ## Open items
 
 1. Run the 4-GPU case for longer and check that `dt` grows as on the CPU (6.4e-7 limit).
