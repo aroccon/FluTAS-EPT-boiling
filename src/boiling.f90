@@ -2165,16 +2165,20 @@ subroutine copy_fields(n,nh_p,in_field,out_field)
   real(rp), intent(in ), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: in_field
   real(rp), intent(out), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: out_field
   integer                                                   :: i,j,k
+  integer                                                   :: n1,n2,n3
   !
   !
-  do k=1-nh_p,n(3)+nh_p
-    do j=1-nh_p,n(2)+nh_p
-      do i=1-nh_p,n(1)+nh_p
+  n1 = n(1); n2 = n(2); n3 = n(3)
+  !$acc parallel loop collapse(3) default(present)
+  do k=1-nh_p,n3+nh_p
+    do j=1-nh_p,n2+nh_p
+      do i=1-nh_p,n1+nh_p
         !
         out_field(i,j,k)    =   in_field(i,j,k)
       enddo
     enddo
   enddo
+  !$acc end parallel loop
   !
   return
 end subroutine copy_fields
@@ -2649,6 +2653,7 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
   real(rp) :: rhox,rhoy,rhoz,rhoxi,rhoyi,rhozi
   real(rp) :: f2
   integer  :: i,j,k,ip,jp,kp
+  integer  :: ibmh
   !@cuf attributes(managed) :: dzci, p, rho, u, v, w
   !
   if(istep.eq.1) then ! we use 1st order Euler in the first time-step (istep.eq.1)
@@ -2657,9 +2662,11 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
     f2 = (f_t12/f_t12_o)
   endif
   !
+  ibmh = IBM_h
   select case(stage)
     case(1)
-      do k=1+IBM_h,nz
+      !$acc parallel loop collapse(3) default(present) private(ip,jp,kp,rhox,rhoy,rhoz,rhoxi,rhoyi,rhozi)
+      do k=1+ibmh,nz
         do j=1,ny
           do i=1,nx
             !
@@ -2674,8 +2681,10 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
           enddo
         enddo
       enddo
+      !$acc end parallel loop
     case(2)
-      do k=1+IBM_h,nz
+      !$acc parallel loop collapse(3) default(present) private(ip,jp,kp,rhox,rhoy,rhoz,rhoxi,rhoyi,rhozi)
+      do k=1+ibmh,nz
         do j=1,ny
           do i=1,nx
             !
@@ -2697,8 +2706,10 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
           enddo
         enddo
       enddo
+      !$acc end parallel loop
     case(3)
-      do k=1+IBM_h,nz
+      !$acc parallel loop collapse(3) default(present) private(ip,jp,kp,rhox,rhoy,rhoz,rhoxi,rhoyi,rhozi)
+      do k=1+ibmh,nz
         do j=1,ny
           do i=1,nx
             !
@@ -2720,6 +2731,7 @@ subroutine pres_tw_src(nx,ny,nz,dxi,dyi,dzi,nh_d,nh_u,dzci,rho0i,f_t12,f_t12_o,p
           enddo
         enddo
       enddo
+      !$acc end parallel loop
     case default
       call flutas_error('ERROR in pres_tw_src: Invalid pressure stage specified!')
   end select

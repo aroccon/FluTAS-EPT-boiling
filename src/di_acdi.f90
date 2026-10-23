@@ -1495,33 +1495,41 @@ end subroutine rk_ent_ibm
     !
     real(rp) :: abs_u_ijk ,ux,vx,wx,uy,vy,wy,uz,vz,wz
     integer  :: i,j,k
+    integer  :: n1,n2,n3
+    real(rp) :: umax
     !
-    u_reg = 0._rp 
-    do k=1,n(3)
-      do j=1,n(2)
-        do i=1,n(1)
+    n1 = n(1); n2 = n(2); n3 = n(3)
+    umax = 0._rp
+    ! max is order independent: same result as the CPU loop
+    !$acc parallel loop collapse(3) default(present) reduction(max:umax) &
+    !$acc private(abs_u_ijk,ux,vx,wx,uy,vy,wy,uz,vz,wz)
+    do k=1,n3
+      do j=1,n2
+        do i=1,n1
           !
           ux = abs(u(i,j,k))
           vx = 0.25_rp*abs( v(i,j,k)+v(i,j-1,k)+v(i+1,j,k)+v(i+1,j-1,k) )
           wx = 0.25_rp*abs( w(i,j,k)+w(i,j,k-1)+w(i+1,j,k)+w(i+1,j,k-1) )
           abs_u_ijk = sqrt(ux**2+vx**2+wx**2)
-          u_reg     = max(u_reg,abs_u_ijk)
+          umax      = max(umax,abs_u_ijk)
           !
           uy = 0.25_rp*abs( u(i,j,k)+u(i,j+1,k)+u(i-1,j+1,k)+u(i-1,j,k) )
           vy = abs(v(i,j,k))
           wy = 0.25_rp*abs( w(i,j,k)+w(i,j+1,k)+w(i,j+1,k-1)+w(i,j,k-1) )
           abs_u_ijk = sqrt(uy**2+vy**2+wy**2)
-          u_reg     = max(u_reg,abs_u_ijk)
+          umax      = max(umax,abs_u_ijk)
           !
           uz = 0.25_rp*abs( u(i,j,k)+u(i-1,j,k)+u(i-1,j,k+1)+u(i,j,k+1) )
           vz = 0.25_rp*abs( v(i,j,k)+v(i,j-1,k)+v(i,j-1,k+1)+v(i,j,k+1) )
           wz = abs(w(i,j,k))
           abs_u_ijk = sqrt(uz**2+vz**2+wz**2)
-          u_reg     = max(u_reg,abs_u_ijk)
+          umax      = max(umax,abs_u_ijk)
           !
         enddo
       enddo
     enddo
+    !$acc end parallel loop
+    u_reg = umax
     !u_reg = 0.1
     call mpi_allreduce(MPI_IN_PLACE,u_reg,1,MPI_REAL_RP,MPI_MAX,comm_cart,ierr)
     if (u_reg.EQ.0.0_rp ) u_reg = 0.01_rp
@@ -2036,12 +2044,15 @@ end subroutine rk_ent_ibm
     !
     real(rp) :: clip_psi
     integer  :: i,j,k
+    integer  :: n1,n2,n3
     !
     real(rp), parameter :: small = real(2.e-16,rp)
     !
-    do k=1,n(3)
-      do j=1,n(2)
-        do i=1,n(1)
+    n1 = n(1); n2 = n(2); n3 = n(3)
+    !$acc parallel loop collapse(3) default(present) private(clip_psi)
+    do k=1,n3
+      do j=1,n2
+        do i=1,n1
           !
           clip_psi  = min(max(0.0_rp,psi(i,j,k)),1.0_rp) 
           ls(i,j,k) = eps_int*log( (clip_psi+small)/(1.0_rp-clip_psi+small) )
@@ -2049,6 +2060,7 @@ end subroutine rk_ent_ibm
         enddo
       enddo
     enddo
+    !$acc end parallel loop
     !
     return
   end subroutine psi_to_ls
@@ -2094,90 +2106,97 @@ end subroutine rk_ent_ibm
     real(rp), dimension(3) :: dl
     real(rp) :: norm,cur_x,cur_y,cur_z
     integer  :: i,j,k,p
+    integer  :: n1,n2,n3
+    real(rp) :: dli1,dli2,dli3,dl1,dl2,dl3
     !
     real(rp), parameter :: small = real(1.0e-12,rp)
     !
     !
     dl(:) = dli(:)**(-1)
+    ! scalar copies: in the caller dli is the static module array of mod_param (see dl in param.f90)
+    dli1 = dli(1); dli2 = dli(2); dli3 = dli(3)
+    dl1 = dl(1); dl2 = dl(2); dl3 = dl(3)
+    n1 = n(1); n2 = n(2); n3 = n(3)
     !
-    do k=1,n(3)
-      do j=1,n(2)
-        do i=1,n(1)
+    !$acc parallel loop collapse(3) default(present) private(nx,ny,nz,mx,my,mz,norm,cur_x,cur_y,cur_z)
+    do k=1,n3
+      do j=1,n2
+        do i=1,n1
           !
           !i+1/2 j+1/2 k+1/2
           mx(1)=((phi(i+1,j  ,k  )+phi(i+1,j+1,k  )+phi(i+1,j  ,k+1)+phi(i+1,j+1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i  ,j+1,k  )+phi(i  ,j  ,k+1)+phi(i  ,j+1,k+1)))*dli(1)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i  ,j+1,k  )+phi(i  ,j  ,k+1)+phi(i  ,j+1,k+1)))*dli1*0.25_rp
           !i+1/2 j-1/2 k+1/2
           mx(2)=((phi(i+1,j  ,k  )+phi(i+1,j-1,k  )+phi(i+1,j  ,k+1)+phi(i+1,j-1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i  ,j-1,k  )+phi(i  ,j  ,k+1)+phi(i  ,j-1,k+1)))*dli(1)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i  ,j-1,k  )+phi(i  ,j  ,k+1)+phi(i  ,j-1,k+1)))*dli1*0.25_rp
           !i+1/2 j+1/2 k-1/2
           mx(3)=((phi(i+1,j  ,k  )+phi(i+1,j+1,k  )+phi(i+1,j  ,k-1)+phi(i+1,j+1,k-1))-&
-                 (phi(i  ,j  ,k  )+phi(i  ,j+1,k  )+phi(i  ,j  ,k-1)+phi(i  ,j+1,k-1)))*dli(1)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i  ,j+1,k  )+phi(i  ,j  ,k-1)+phi(i  ,j+1,k-1)))*dli1*0.25_rp
           !i+1/2 j-1/2 k-1/2
           mx(4)=((phi(i+1,j  ,k  )+phi(i+1,j-1,k  )+phi(i+1,j  ,k-1)+phi(i+1,j-1,k-1))-&
-                 (phi(i  ,j  ,k  )+phi(i  ,j-1,k  )+phi(i  ,j  ,k-1)+phi(i  ,j-1,k-1)))*dli(1)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i  ,j-1,k  )+phi(i  ,j  ,k-1)+phi(i  ,j-1,k-1)))*dli1*0.25_rp
           !i-1/2 j+1/2 k+1/2
           mx(5)=((phi(i  ,j  ,k  )+phi(i  ,j+1,k  )+phi(i  ,j  ,k+1)+phi(i  ,j+1,k+1))-&
-                 (phi(i-1,j  ,k  )+phi(i-1,j+1,k  )+phi(i-1,j  ,k+1)+phi(i-1,j+1,k+1)))*dli(1)*0.25_rp
+                 (phi(i-1,j  ,k  )+phi(i-1,j+1,k  )+phi(i-1,j  ,k+1)+phi(i-1,j+1,k+1)))*dli1*0.25_rp
           !i-1/2 j-1/2 k+1/2
           mx(6)=((phi(i  ,j  ,k  )+phi(i  ,j-1,k  )+phi(i  ,j  ,k+1)+phi(i  ,j-1,k+1))-&
-                 (phi(i-1,j  ,k  )+phi(i-1,j-1,k  )+phi(i-1,j  ,k+1)+phi(i-1,j-1,k+1)))*dli(1)*0.25_rp
+                 (phi(i-1,j  ,k  )+phi(i-1,j-1,k  )+phi(i-1,j  ,k+1)+phi(i-1,j-1,k+1)))*dli1*0.25_rp
           !i-1/2 j+1/2 k-1/2
           mx(7)=((phi(i  ,j  ,k  )+phi(i  ,j+1,k  )+phi(i  ,j  ,k-1)+phi(i  ,j+1,k-1))-&
-                 (phi(i-1,j  ,k  )+phi(i-1,j+1,k  )+phi(i-1,j  ,k-1)+phi(i-1,j+1,k-1)))*dli(1)*0.25_rp
+                 (phi(i-1,j  ,k  )+phi(i-1,j+1,k  )+phi(i-1,j  ,k-1)+phi(i-1,j+1,k-1)))*dli1*0.25_rp
           !i-1/2 j-1/2 k-1/2
           mx(8)=((phi(i  ,j  ,k  )+phi(i  ,j-1,k  )+phi(i  ,j  ,k-1)+phi(i  ,j-1,k-1))-&
-                 (phi(i-1,j  ,k  )+phi(i-1,j-1,k  )+phi(i-1,j  ,k-1)+phi(i-1,j-1,k-1)))*dli(1)*0.25_rp
+                 (phi(i-1,j  ,k  )+phi(i-1,j-1,k  )+phi(i-1,j  ,k-1)+phi(i-1,j-1,k-1)))*dli1*0.25_rp
           !
           !i+1/2 j+1/2 k+1/2
           my(1)=((phi(i  ,j+1,k  )+phi(i+1,j+1,k  )+phi(i  ,j+1,k+1)+phi(i+1,j+1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j  ,k+1)+phi(i+1,j  ,k+1)))*dli(2)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j  ,k+1)+phi(i+1,j  ,k+1)))*dli2*0.25_rp
           !i+1/2 j-1/2 k+1/2
           my(2)=((phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j  ,k+1)+phi(i+1,j  ,k+1))-&
-                 (phi(i  ,j-1,k  )+phi(i+1,j-1,k  )+phi(i  ,j-1,k+1)+phi(i+1,j-1,k+1)))*dli(2)*0.25_rp
+                 (phi(i  ,j-1,k  )+phi(i+1,j-1,k  )+phi(i  ,j-1,k+1)+phi(i+1,j-1,k+1)))*dli2*0.25_rp
           !i+1/2 j+1/2 k-1/2
           my(3)=((phi(i  ,j+1,k  )+phi(i+1,j+1,k  )+phi(i  ,j+1,k-1)+phi(i+1,j+1,k-1))-&
-                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j  ,k-1)+phi(i+1,j  ,k-1)))*dli(2)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j  ,k-1)+phi(i+1,j  ,k-1)))*dli2*0.25_rp
           !i+1/2 j-1/2 k-1/2
           my(4)=((phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j  ,k-1)+phi(i+1,j  ,k-1))-&
-                 (phi(i  ,j-1,k  )+phi(i+1,j-1,k  )+phi(i  ,j-1,k-1)+phi(i+1,j-1,k-1)))*dli(2)*0.25_rp
+                 (phi(i  ,j-1,k  )+phi(i+1,j-1,k  )+phi(i  ,j-1,k-1)+phi(i+1,j-1,k-1)))*dli2*0.25_rp
           !i-1/2 j+1/2 k+1/2
           my(5)=((phi(i  ,j+1,k  )+phi(i-1,j+1,k  )+phi(i  ,j+1,k+1)+phi(i-1,j+1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j  ,k+1)+phi(i-1,j  ,k+1)))*dli(2)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j  ,k+1)+phi(i-1,j  ,k+1)))*dli2*0.25_rp
           !i-1/2 j-1/2 k+1/2
           my(6)=((phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j  ,k+1)+phi(i-1,j  ,k+1))-&
-                 (phi(i  ,j-1,k  )+phi(i-1,j-1,k  )+phi(i  ,j-1,k+1)+phi(i-1,j-1,k+1)))*dli(2)*0.25_rp
+                 (phi(i  ,j-1,k  )+phi(i-1,j-1,k  )+phi(i  ,j-1,k+1)+phi(i-1,j-1,k+1)))*dli2*0.25_rp
           !i-1/2 j+1/2 k-1/2
           my(7)=((phi(i  ,j+1,k  )+phi(i-1,j+1,k  )+phi(i  ,j+1,k-1)+phi(i-1,j+1,k-1))-&
-                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j  ,k-1)+phi(i-1,j  ,k-1)))*dli(2)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j  ,k-1)+phi(i-1,j  ,k-1)))*dli2*0.25_rp
           !i-1/2 j-1/2 k-1/2
           my(8)=((phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j  ,k-1)+phi(i-1,j  ,k-1))-&
-                 (phi(i  ,j-1,k  )+phi(i-1,j-1,k  )+phi(i  ,j-1,k-1)+phi(i-1,j-1,k-1)))*dli(2)*0.25_rp
+                 (phi(i  ,j-1,k  )+phi(i-1,j-1,k  )+phi(i  ,j-1,k-1)+phi(i-1,j-1,k-1)))*dli2*0.25_rp
           !
           !i+1/2 j+1/2 k+1/2
           mz(1)=((phi(i  ,j  ,k+1)+phi(i+1,j  ,k+1)+phi(i  ,j+1,k+1)+phi(i+1,j+1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j+1,k  )+phi(i+1,j+1,k  )))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j+1,k  )+phi(i+1,j+1,k  )))*dli3*0.25_rp
           !i+1/2 j-1/2 k+1/2
           mz(2)=((phi(i  ,j  ,k+1)+phi(i+1,j  ,k+1)+phi(i  ,j-1,k+1)+phi(i+1,j-1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j-1,k  )+phi(i+1,j-1,k  )))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j-1,k  )+phi(i+1,j-1,k  )))*dli3*0.25_rp
           !i+1/2 j+1/2 k-1/2
           mz(3)=((phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j+1,k  )+phi(i+1,j+1,k  ))-&
-                 (phi(i  ,j  ,k-1)+phi(i+1,j  ,k-1)+phi(i  ,j+1,k-1)+phi(i+1,j+1,k-1)))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k-1)+phi(i+1,j  ,k-1)+phi(i  ,j+1,k-1)+phi(i+1,j+1,k-1)))*dli3*0.25_rp
           !i+1/2 j-1/2 k-1/2
           mz(4)=((phi(i  ,j  ,k  )+phi(i+1,j  ,k  )+phi(i  ,j-1,k  )+phi(i+1,j-1,k  ))-&
-                 (phi(i  ,j  ,k-1)+phi(i+1,j  ,k-1)+phi(i  ,j-1,k-1)+phi(i+1,j-1,k-1)))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k-1)+phi(i+1,j  ,k-1)+phi(i  ,j-1,k-1)+phi(i+1,j-1,k-1)))*dli3*0.25_rp
           !i-1/2 j+1/2 k+1/2
           mz(5)=((phi(i  ,j  ,k+1)+phi(i-1,j  ,k+1)+phi(i  ,j+1,k+1)+phi(i-1,j+1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j+1,k  )+phi(i-1,j+1,k  )))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j+1,k  )+phi(i-1,j+1,k  )))*dli3*0.25_rp
           !i-1/2 j-1/2 k+1/2
           mz(6)=((phi(i  ,j  ,k+1)+phi(i-1,j  ,k+1)+phi(i  ,j-1,k+1)+phi(i-1,j-1,k+1))-&
-                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j-1,k  )+phi(i-1,j-1,k  )))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j-1,k  )+phi(i-1,j-1,k  )))*dli3*0.25_rp
           !i-1/2 j+1/2 k-1/2
           mz(7)=((phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j+1,k  )+phi(i-1,j+1,k  ))-&
-                 (phi(i  ,j  ,k-1)+phi(i-1,j  ,k-1)+phi(i  ,j+1,k-1)+phi(i-1,j+1,k-1)))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k-1)+phi(i-1,j  ,k-1)+phi(i  ,j+1,k-1)+phi(i-1,j+1,k-1)))*dli3*0.25_rp
           !i-1/2 j-1/2 k-1/2
           mz(8)=((phi(i  ,j  ,k  )+phi(i-1,j  ,k  )+phi(i  ,j-1,k  )+phi(i-1,j-1,k  ))-&
-                 (phi(i  ,j  ,k-1)+phi(i-1,j  ,k-1)+phi(i  ,j-1,k-1)+phi(i-1,j-1,k-1)))*dli(3)*0.25_rp
+                 (phi(i  ,j  ,k-1)+phi(i-1,j  ,k-1)+phi(i  ,j-1,k-1)+phi(i-1,j-1,k-1)))*dli3*0.25_rp
           !
           do p=1,8
             norm  = sqrt(mx(p)**2+my(p)**2+mz(p)**2) + small
@@ -2205,18 +2224,19 @@ end subroutine rk_ent_ibm
           nor(i,j,k,2) = nor(i,j,k,2)/norm
           nor(i,j,k,3) = nor(i,j,k,3)/norm
           ! 
-          cur_x = ((nx(1)+nx(2)+nx(3)+nx(4))-(nx(5)+nx(6)+nx(7)+nx(8)))*dl(1)*0.25_rp
-          cur_y = ((ny(1)+ny(3)+ny(5)+ny(7))-(ny(2)+ny(4)+ny(6)+ny(8)))*dl(2)*0.25_rp
-          cur_z = ((nz(1)+nz(2)+nz(5)+nz(6))-(nz(3)+nz(4)+nz(7)+nz(8)))*dl(3)*0.25_rp
+          cur_x = ((nx(1)+nx(2)+nx(3)+nx(4))-(nx(5)+nx(6)+nx(7)+nx(8)))*dl1*0.25_rp
+          cur_y = ((ny(1)+ny(3)+ny(5)+ny(7))-(ny(2)+ny(4)+ny(6)+ny(8)))*dl2*0.25_rp
+          cur_z = ((nz(1)+nz(2)+nz(5)+nz(6))-(nz(3)+nz(4)+nz(7)+nz(8)))*dl3*0.25_rp
           !
           !
           !
-          kappa(i,j,k) = -(cur_x*dli(1)**2+cur_y*dli(2)**2+cur_z*dli(3)**2) !max(-max_kappa, min(-(cur_x*dli(1)**2+cur_y*dli(2)**2+cur_z*dli(3)**2),max_kappa))
+          kappa(i,j,k) = -(cur_x*dli1**2+cur_y*dli2**2+cur_z*dli3**2) !max(-max_kappa, min(-(cur_x*dli1**2+cur_y*dli2**2+cur_z*dli3**2),max_kappa))
      
           !
         enddo
       enddo
     enddo
+    !$acc end parallel loop
     
    
     

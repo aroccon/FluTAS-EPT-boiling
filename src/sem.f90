@@ -1135,6 +1135,7 @@
     logical  , intent(in   )                                     :: rho_switch
     INTEGER                                                      :: e,i,j,k,ne
     real(rp)                                                     :: rho_factor
+    integer                                                      :: kmin,n1,n3
     !
     If(rho_switch) then
         rho_factor = rho2   !multiply py denity of the liquid phase 
@@ -1147,24 +1148,18 @@
     case(2)
       if((front.eq.MPI_PROC_NULL).AND.(cbcvel(0,2,1).EQ.'D') &
                                  .AND.(cbcvel(0,2,2).EQ.'D').AND.(cbcvel(0,2,3).EQ.'D')) then
-        ! first for the x-direction
-        do k=1 + IBM_h,n(3)
-          do i=1,n(1)
+        ! x, y and z components of the inflow plane (j = 0), on the GPU
+        kmin = 1 + IBM_h
+        n1 = n(1); n3 = n(3)
+        !$acc parallel loop collapse(2) default(present)
+        do k=kmin,n3
+          do i=1,n1
             u(i,0,k) = u_bc(i,k)*rho_factor
-          enddo
-        enddo
-        ! now for the y-direction
-        do k=1 + IBM_h,n(3)
-          do i=1,n(1)
             v(i,0,k) = v_bc(i,k)*rho_factor
-          enddo
-        enddo
-        ! now for the z-direction
-        do k=1 + IBM_h,n(3)
-          do i=1,n(1)
             w(i,0,k) = w_bc(i,k)*rho_factor
           enddo
         enddo
+        !$acc end parallel loop
       endif
     case(0)
       ! Do nothing
