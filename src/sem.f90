@@ -769,6 +769,14 @@
     real(rp), parameter                                          :: small_num = 1e-12_rp
     real(rp),allocatable,dimension(:,:,:)                        :: vel_bc_tot,buffer
     integer                                                      :: lb1,lb2,lb3
+#if defined(_OPENACC)
+    ! GPU version: local copies of everything the kernel reads (no module arrays inside the kernel)
+    real(rp), allocatable, dimension(:)                          :: sig_c,int_c,sig_f,int_f
+    real(rp), allocatable, dimension(:,:)                        :: edd
+    real(rp)                                                     :: dx_,dy_,dz_,vb_,acc1,acc2,acc3,bx,bz
+    real(rp)                                                     :: sig_f_k,int_f_k,sig_c_k,int_c_k,zs3,rrz3
+    integer                                                      :: kmin,kmax,i0,ne0,ne1,n1
+#endif
     !     functions
     ! ---- compute velocity contribution of eddies ------
     !
@@ -786,6 +794,116 @@
       xmin = (     ijk_start(1))*dx
       xmax = (n(1)+ijk_start(1))*dx
       !
+#if defined(_OPENACC)
+      !
+      ! one GPU thread per inlet point (i,k), summing over this rank's eddies in the same order
+      ! (ne ascending) as the CPU loop below, so vel_bc_tot matches the CPU version
+      !
+      kmin = 1 + IBM_h
+      kmax = n(3)
+      n1   = n(1)
+      i0   = ijk_start(1)
+      ne0  = start_edd
+      ne1  = stop_edd
+      dx_  = dx
+      dy_  = dy
+      dz_  = dz
+      vb_  = Vb(fam)
+      allocate(sig_c(kmin:kmax),int_c(kmin:kmax),sig_f(kmin:kmax),int_f(kmin:kmax),edd(ne0:ne1,6))
+      do k=kmin,kmax
+        ii = 0
+        if(k.eq.n(3)) ii = 1
+        sig_c(k) = sigma_inlet(1,k,fam)
+        int_c(k) = intensity_inlet(1,k,fam)
+        sig_f(k) = 0.5_rp*(sigma_inlet(1,k,fam)+sigma_inlet(1,k+1-ii,fam))
+        int_f(k) = 0.5_rp*(intensity_inlet(1,k,fam)+intensity_inlet(1,k+1-ii,fam))
+      enddo
+      edd(ne0:ne1,1:6) = eddy(ne0:ne1,1:6)
+      bx = 0._rp
+      bz = 0._rp
+      !$acc parallel loop collapse(2) copyin(sig_c,int_c,sig_f,int_f,edd) copy(vel_bc_tot) &
+      !$acc reduction(+:bx,bz) &
+      !$acc private(acc1,acc2,acc3,zs,zs3,rrz,rrz3,sig_c_k,int_c_k,sig_f_k,int_f_k,sigma_i,ff_start, &
+      !$acc         xs,ys,rrx,rry,rr,fx,fy,fz,ff)
+      do k=kmin,kmax
+        do i=1,n1
+          acc1 = 0._rp
+          acc2 = 0._rp
+          acc3 = 0._rp
+          zs      = (k-0.5_rp)*dz_
+          zs3     = k*dz_
+          sig_c_k = sig_c(k)
+          int_c_k = int_c(k)
+          sig_f_k = sig_f(k)
+          int_f_k = int_f(k)
+          !$acc loop seq
+          do ne=ne0,ne1
+            if(.NOT.(((edd(ne,1)-xmax).GT.max_sig).OR.((xmin-edd(ne,1)).GT.max_sig))) then
+              ! x and y components (cell-centred in z)
+              rrz = abs(zs-edd(ne,2))
+              if(rrz.LT.sig_c_k) then
+                sigma_i  = 1.0_rp/sig_c_k
+                ff_start = SQRT(16._rp*vb_/(15._rp*pi*sig_c_k**3.0))
+                ys  = -0.5*dy_
+                xs  = (i+i0)*dx_
+                rrx = (xs-edd(ne,1))
+                rry = (ys-edd(ne,3))
+                rr  = SQRT(rrx*rrx + rry*rry + rrz*rrz)
+                if(rr .LT. sig_c_k) then
+                  fx = rry*edd(ne,6)-rrz*edd(ne,5)
+                  fx = fx * int_c_k*sigma_i
+                  ff = ff_start * (SIN(pi*rr*sigma_i)**2.0)*rr*sigma_i
+                  ff = ff/((rr*sigma_i)**3.0)
+                  ff = ff*sqrtn
+                  acc1 = acc1 + fx*ff
+                endif
+                ys  = 0.0
+                xs  = (i+i0-0.5)*dx_
+                rrx = (xs-edd(ne,1))
+                rry = (ys-edd(ne,3))
+                rr  = SQRT(rrx*rrx + rry*rry + rrz*rrz)
+                if(rr .LT. sig_c_k) then
+                  fy = rrz*edd(ne,4)-rrx*edd(ne,6)
+                  fy = fy * int_c_k*sigma_i
+                  ff = ff_start * (SIN(pi*rr*sigma_i)**2.0)*rr*sigma_i
+                  ff = ff/((rr*sigma_i)**3.0)
+                  ff = ff*sqrtn
+                  acc2 = acc2 + fy*ff
+                endif
+              endif
+              ! z component (face-centred in z)
+              rrz3 = abs(zs3-edd(ne,2))
+              if(rrz3.LT.sig_f_k) then
+                sigma_i  = 1.0_rp/sig_f_k
+                ff_start = SQRT(16._rp*vb_/(15._rp*pi*sig_f_k**3.0))
+                ys  = -0.5*dy_
+                xs  = (i+i0-0.5)*dx_
+                rrx = (xs-edd(ne,1))
+                rry = (ys-edd(ne,3))
+                rr  = SQRT(rrx*rrx + rry*rry + rrz3*rrz3)
+                if(rr .LT. sig_f_k) then
+                  fz = rrx*edd(ne,5)-rry*edd(ne,4)
+                  fz = fz * int_f_k*sigma_i
+                  ff = ff_start * (SIN(pi*rr*sigma_i)**2.0)*rr*sigma_i
+                  ff = ff/((rr*sigma_i)**3.0)
+                  ff = ff*sqrtn
+                  acc3 = acc3 + fz*ff
+                endif
+              endif
+            endif
+          enddo
+          vel_bc_tot(i,k,1) = acc1
+          vel_bc_tot(i,k,2) = acc2
+          vel_bc_tot(i,k,3) = acc3
+          bx = bx + dx_*dz_*acc1
+          bz = bz + dx_*dz_*acc3
+        enddo
+      enddo
+      !$acc end parallel loop
+      bulk_vel_diff(1,fam) = bulk_vel_diff(1,fam) + bx
+      bulk_vel_diff(3,fam) = bulk_vel_diff(3,fam) + bz
+      deallocate(sig_c,int_c,sig_f,int_f,edd)
+#else
       DO ne=start_edd,stop_edd
         !==================================================
         if(.NOT.(((eddy(ne,1)-xmax).GT.max_sig).OR.((xmin-eddy(ne,1)).GT.max_sig))) then
@@ -876,6 +994,7 @@
         endif
         !=================================~
       ENDDO
+#endif
       !
       if((front.eq.MPI_PROC_NULL).AND.(cbcvel(0,2,1).EQ.'D') &
                                  .AND.(cbcvel(0,2,2).EQ.'D').AND.(cbcvel(0,2,3).EQ.'D')) then
