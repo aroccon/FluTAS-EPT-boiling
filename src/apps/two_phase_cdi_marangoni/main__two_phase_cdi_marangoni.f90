@@ -223,6 +223,8 @@ program flutas
   real(rp) :: aux,A_aux,B_aux,auxp,auxm,C_aux
   integer  :: ii,jj,expon
   integer :: n1, n2, n3
+  real(rp) :: drho_mf   ! rho1-rho2 as a local scalar for the GPU kernels
+  integer  :: ibmh_mf
   integer :: ng1, ng2, ng3
   !
   call MPI_INIT(ierr)
@@ -1286,14 +1288,19 @@ endif
     call profiler_start("RK", tag = .true., tag_color = COLOR_RED)
     call profiler_start("RK:mf_loops")
     !
-    !Compute the momentum of the volume-averaged mixture velocity 
+    !Compute the momentum of the volume-averaged mixture velocity (on the GPU)
     !
+    drho_mf = rho1-rho2
+    ibmh_mf = IBM_h
+    !$acc kernels default(present)
     mfx(:,:,:) = 0.d0
     mfy(:,:,:) = 0.d0
     mfz(:,:,:) = 0.d0
-    do k=1,n(3)
-      do j=1,n(2)
-        do i=1,n(1)
+    !$acc end kernels
+    !$acc parallel loop collapse(3) default(present) private(ip,jp,kp)
+    do k=1,n3
+      do j=1,n2
+        do i=1,n1
           ip = i + 1
           jp = j + 1
           kp = k + 1
@@ -1305,16 +1312,19 @@ endif
         enddo
       enddo
     enddo
+    !$acc end parallel loop
     ! Now turn it into the momentum of the  density avergaed miyture velocity
-    do k=1+IBM_h,n(3)
-     do j=1,n(2)
-      do i=1,n(1)
-        mfx(i,j,k) = mfx(i,j,k) - (rho1-rho2)*rex(i,j,k)
-        mfy(i,j,k) = mfy(i,j,k) - (rho1-rho2)*rey(i,j,k)
-        mfz(i,j,k) = mfz(i,j,k) - (rho1-rho2)*rez(i,j,k)
+    !$acc parallel loop collapse(3) default(present)
+    do k=1+ibmh_mf,n3
+     do j=1,n2
+      do i=1,n1
+        mfx(i,j,k) = mfx(i,j,k) - drho_mf*rex(i,j,k)
+        mfy(i,j,k) = mfy(i,j,k) - drho_mf*rey(i,j,k)
+        mfz(i,j,k) = mfz(i,j,k) - drho_mf*rez(i,j,k)
       enddo
      enddo
     enddo
+    !$acc end parallel loop
     !
     call profiler_stop("RK:mf_loops")
     call profiler_start("RK:bnd_mom")

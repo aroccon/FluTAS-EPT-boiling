@@ -156,18 +156,22 @@ subroutine set_IBM_vel_to_zero(n,nh_u,u,v,w)
   integer , intent(in   )                                     :: nh_u
   real(rp), intent(inout), dimension(1-nh_u:,1-nh_u:,1-nh_u:) :: u,v,w
   integer                                                     :: i,j,k
+  integer                                                     :: n1,n2,ibmh
   !
   !
-  if(IBM_h.NE.0) then
-    do k=1-nh_u,IBM_h
-      do j=1-nh_u,n(2)+nh_u
-        do i=1-nh_u,n(1)+nh_u
+  n1 = n(1); n2 = n(2); ibmh = IBM_h
+  if(ibmh.NE.0) then
+    !$acc parallel loop collapse(3) default(present)
+    do k=1-nh_u,ibmh
+      do j=1-nh_u,n2+nh_u
+        do i=1-nh_u,n1+nh_u
           u(i,j,k) = 0.0
           v(i,j,k) = 0.0
           w(i,j,k) = 0.0
         enddo
       enddo
     enddo
+    !$acc end parallel loop
   endif
   !
 end subroutine set_IBM_vel_to_zero
@@ -191,6 +195,7 @@ subroutine update_property_IBM(n,nh_p,prop12,psi,prop,IBM_cond)
   real(rp) :: prop12_1, prop12_2
   integer  :: i,j,k,ii
   integer  :: n1, n2, n3
+  integer  :: ibmh
   ! 
   n1 = n(1)
   n2 = n(2)
@@ -201,25 +206,30 @@ subroutine update_property_IBM(n,nh_p,prop12,psi,prop,IBM_cond)
   prop12_1 = prop12(1)
   prop12_2 = prop12(2)
   !
-  if(IBM_h.NE.0) then
-    do k=1-nh_p,IBM_h
+  ibmh = IBM_h
+  if(ibmh.NE.0) then
+    !$acc parallel loop collapse(3) default(present)
+    do k=1-nh_p,ibmh
       do j=1-nh_p,n2+nh_p
         do i=1-nh_p,n1+nh_p
           prop(i,j,k) = IBM_cond
         enddo
       enddo
     enddo
+    !$acc end parallel loop
   endif
   !
-  if(IBM_h.EQ.0) ii = nh_p
+  if(ibmh.EQ.0) ii = nh_p
   !
-  do k=1+IBM_h-ii,n3+nh_p
+  !$acc parallel loop collapse(3) default(present)
+  do k=1+ibmh-ii,n3+nh_p
     do j=1-nh_p,n2+nh_p
       do i=1-nh_p,n1+nh_p
         prop(i,j,k) = psi(i,j,k)*prop12_1+(1.0_rp-psi(i,j,k))*prop12_2
       enddo
     enddo
   enddo
+  !$acc end parallel loop
   !
   return
 end subroutine update_property_IBM
@@ -2181,16 +2191,20 @@ subroutine add_a_to_b(n,nh_p,field_a,field_b)
   real(rp), intent(in   ), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: field_a
   real(rp), intent(inout), dimension(1-nh_p:,1-nh_p:,1-nh_p:) :: field_b
   integer                                                     :: i,j,k
+  integer                                                     :: n1,n2,n3
   !
   !
-  do k=1,n(3)
-    do j=1,n(2)
-      do i=1,n(1)
+  n1 = n(1); n2 = n(2); n3 = n(3)
+  !$acc parallel loop collapse(3) default(present)
+  do k=1,n3
+    do j=1,n2
+      do i=1,n1
         !
         field_b(i,j,k)    =    field_b(i,j,k)  +  field_a(i,j,k)
       enddo
     enddo
   enddo
+  !$acc end parallel loop
   !
   return
 end subroutine add_a_to_b
@@ -3016,12 +3030,23 @@ subroutine cmpt_u_grad_rho(n,nh_p,nh_u,u,v,w,rho,u_grad_rho,dxi,dyi,dzi)
   real(rp), intent(out  ), dimension(1:     ,1:     ,1:     ) :: u_grad_rho
   real(rp), intent(in   )                                     :: dxi,dyi,dzi
   integer                                                     :: i,j,k
+  integer                                                     :: n1,n2,n3,ibmh
   !
-  u_grad_rho(:,:,:) = 0.0
+  n1 = n(1); n2 = n(2); n3 = n(3); ibmh = IBM_h
+  !$acc parallel loop collapse(3) default(present)
+  do k=1,n3
+    do j=1,n2
+      do i=1,n1
+        u_grad_rho(i,j,k) = 0.0
+      enddo
+    enddo
+  enddo
+  !$acc end parallel loop
   !
-  do k=1+IBM_h,n(3)
-    do j=1,n(2)
-      do i=1,n(1)
+  !$acc parallel loop collapse(3) default(present)
+  do k=1+ibmh,n3
+    do j=1,n2
+      do i=1,n1
         u_grad_rho(i,j,k) = 0.5*(u(i  ,j  ,k  )*(rho(i+1,j  ,k  )-rho(i  ,j  ,k  ))*dxi       &
                                 +u(i-1,j  ,k  )*(rho(i  ,j  ,k  )-rho(i-1,j  ,k  ))*dxi)      &
                            +0.5*(v(i  ,j  ,k  )*(rho(i  ,j+1,k  )-rho(i  ,j  ,k  ))*dyi       &
@@ -3031,6 +3056,7 @@ subroutine cmpt_u_grad_rho(n,nh_p,nh_u,u,v,w,rho,u_grad_rho,dxi,dyi,dzi)
       enddo
     enddo
   enddo
+  !$acc end parallel loop
   !
   return
 end subroutine cmpt_u_grad_rho
@@ -3049,10 +3075,13 @@ subroutine mom_to_vel(n,nh_d,nh_v,nh_u,u_mom,v_mom,w_mom,u_vel,v_vel,w_vel,rho)
   real(rp), intent(in   ), dimension(     0:,     0:,     0:) :: rho
   integer                                                     :: i,j,k
   real(rp)                                                    :: rhox,rhoy,rhoz
+  integer                                                     :: n1,n2,n3
   !
-  do k=1,n(3)
-    do j=1,n(2)
-      do i=1,n(1)
+  n1 = n(1); n2 = n(2); n3 = n(3)
+  !$acc parallel loop collapse(3) default(present) private(rhox,rhoy,rhoz)
+  do k=1,n3
+    do j=1,n2
+      do i=1,n1
         !
         rhox = 0.5d0*(rho(i,j,k)+rho(i+1,j  ,k  ))
         rhoy = 0.5d0*(rho(i,j,k)+rho(i  ,j+1,k  ))
@@ -3064,6 +3093,7 @@ subroutine mom_to_vel(n,nh_d,nh_v,nh_u,u_mom,v_mom,w_mom,u_vel,v_vel,w_vel,rho)
       enddo
     enddo
   enddo
+  !$acc end parallel loop
   !
   return
 end subroutine mom_to_vel
@@ -3346,6 +3376,8 @@ subroutine make_vol_avg_vel(n,nh_d,nh_v,nh_u,u,v,w,rho)
   real(rp), intent(in   ), dimension(     0:,     0:,     0:) :: rho
   integer                                                     :: i,j,k
   real(rp)                                                    :: rhox,rhoy,rhoz
+  real(rp)                                                    :: drho
+  integer                                                     :: k0,k1,j0,j1,i0,i1
   !
   integer                                                     :: x_start,x_stop
   integer                                                     :: y_start,y_stop
@@ -3370,20 +3402,27 @@ subroutine make_vol_avg_vel(n,nh_d,nh_v,nh_u,u,v,w,rho)
     z_stop = out_rk_safety
   endif
   !
-  do k=IBM_h+1+z_start,n(3)-z_stop
-    do j=1+y_start,n(2)-y_stop
-      do i=x_start+1,n(1)-x_stop
+  ! loop bounds and constants as local scalars for the GPU kernel
+  k0 = IBM_h+1+z_start; k1 = n(3)-z_stop
+  j0 = 1+y_start      ; j1 = n(2)-y_stop
+  i0 = x_start+1      ; i1 = n(1)-x_stop
+  drho = rho1-rho2
+  !$acc parallel loop collapse(3) default(present) private(rhox,rhoy,rhoz)
+  do k=k0,k1
+    do j=j0,j1
+      do i=i0,i1
         !
         rhox = 0.5d0*(rho(i,j,k)+rho(i+1,j  ,k  ))
         rhoy = 0.5d0*(rho(i,j,k)+rho(i  ,j+1,k  ))
         rhoz = 0.5d0*(rho(i,j,k)+rho(i  ,j  ,k+1))
         !
-        u(i,j,k) = u(i,j,k) + (rho1-rho2)*rex(i,j,k)/rhox                                     
-        v(i,j,k) = v(i,j,k) + (rho1-rho2)*rey(i,j,k)/rhoy
-        w(i,j,k) = w(i,j,k) + (rho1-rho2)*rez(i,j,k)/rhoz
+        u(i,j,k) = u(i,j,k) + drho*rex(i,j,k)/rhox
+        v(i,j,k) = v(i,j,k) + drho*rey(i,j,k)/rhoy
+        w(i,j,k) = w(i,j,k) + drho*rez(i,j,k)/rhoz
       enddo
     enddo
   enddo
+  !$acc end parallel loop
   !
   return
 end subroutine make_vol_avg_vel
